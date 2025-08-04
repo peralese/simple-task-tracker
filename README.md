@@ -1,6 +1,6 @@
 # 📝 Task Tracker App (No-Code, Google Apps Script)
 
-A no-code personal task tracking application built with **Google Forms**, **Google Sheets**, and **Google Apps Script**.  
+A personal task tracking application built with **Google Forms**, **Google Sheets**, and **Google Apps Script**.  
 It allows you to submit, track, and receive reminders for tasks — all using free Google tools, optimized for both desktop and mobile use.
 
 ---
