@@ -63,7 +63,7 @@ function sendTaskReminders() {
 function sendTaskSummary() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const data = sheet.getDataRange().getValues();
-  const email = Session.getActiveUser().getEmail();
+  const email = "erickles@us.ibm.com";
 
   let openTasks = [];
 
@@ -126,4 +126,30 @@ function archiveCompletedTasks() {
 
     rowsToArchive.forEach(row => archiveSheet.appendRow(row));
   }
+}
+
+function onFormSubmit(e) {
+  reapplyFormattingWithRefresh();
+}
+
+function reapplyFormattingWithRefresh() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form Responses 1"); // replace if needed
+  if (!sheet) throw new Error("Sheet not found.");
+
+  const range = sheet.getDataRange();
+  const rules = sheet.getConditionalFormatRules();
+
+  // Reapply the formatting rules (this alone doesn't trigger a refresh)
+  sheet.setConditionalFormatRules([]);
+  sheet.setConditionalFormatRules(rules);
+
+  // Get all values excluding header
+  const data = range.getValues();
+  if (data.length <= 1) return; // no rows to reprocess
+
+  const dataOnly = data.slice(1); // exclude header
+  const targetRange = sheet.getRange(2, 1, dataOnly.length, dataOnly[0].length);
+
+  // Re-write values to force conditional formatting refresh
+  targetRange.setValues(dataOnly);
 }
