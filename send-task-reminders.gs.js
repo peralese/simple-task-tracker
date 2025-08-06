@@ -99,8 +99,12 @@ function sendTaskSummary() {
 
 function archiveCompletedTasks() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const mainSheet = ss.getSheetByName("Form Responses 1"); // Update this if needed
+  const mainSheet = ss.getSheetByName("Form Responses 1");
   const archiveSheet = ss.getSheetByName("Archive") || ss.insertSheet("Archive");
+
+  if (!mainSheet) {
+    throw new Error('Main sheet "Form Responses 1" not found. Check the sheet/tab name.');
+  }
 
   const data = mainSheet.getDataRange().getValues();
   const headers = data[0];
@@ -122,7 +126,6 @@ function archiveCompletedTasks() {
   }
 
   const dateArchivedCol = archiveHeaders.indexOf(dateArchivedLabel);
-
   let rowsToArchive = [];
 
   for (let i = data.length - 1; i >= 1; i--) {
@@ -132,19 +135,18 @@ function archiveCompletedTasks() {
     if (status && status.toLowerCase() === "complete") {
       const rowWithArchiveDate = [...row];
 
-      // Ensure the row has enough columns for archive date
       while (rowWithArchiveDate.length <= dateArchivedCol) {
         rowWithArchiveDate.push("");
       }
 
-      rowWithArchiveDate[dateArchivedCol] = new Date(); // Add archive timestamp
-      rowsToArchive.unshift(rowWithArchiveDate);        // Add to top of archive list
+      rowWithArchiveDate[dateArchivedCol] = new Date(); // Set archive timestamp
+      rowsToArchive.unshift(rowWithArchiveDate);        // Preserve original order
 
-      mainSheet.deleteRow(i + 1); // Delete from main sheet
+      mainSheet.deleteRow(i + 1); // Delete row from original sheet
     }
   }
 
-  // Write headers if archive sheet is completely empty
+  // Write headers if archive sheet is currently empty
   if (archiveSheet.getLastRow() === 0) {
     const fullHeaders = [...headers];
 
@@ -156,7 +158,7 @@ function archiveCompletedTasks() {
     archiveSheet.appendRow(fullHeaders);
   }
 
-  // Append archived tasks
+  // Append all archived tasks
   rowsToArchive.forEach(row => archiveSheet.appendRow(row));
 }
 
