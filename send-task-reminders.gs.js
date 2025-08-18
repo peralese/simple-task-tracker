@@ -214,20 +214,27 @@ function generateMissingTaskIDs() {
   }
 }
 function onEdit(e) {
-  const sheet = e.source.getSheetByName("Form Responses 1"); // Replace with your sheet name
+  const sheet = e.source.getSheetByName("Form Responses 1");
   if (!sheet) return;
 
-  const editedRange = e.range;
-  const row = editedRange.getRow();
-  const col = editedRange.getColumn();
+  const range = e.range;
+  const row = range.getRow();
+  const col = range.getColumn();
 
-  if (row === 1) return; // Skip header row
+  if (row === 1) return; // skip header row
 
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   const lastModifiedColIndex = headers.indexOf("Last Modified");
+  const dueDateColIndex = headers.indexOf("Due Date");
+  const emailNotifiedColIndex = headers.indexOf("Email Notified");
 
-  if (lastModifiedColIndex === -1) return;
+  // Update Last Modified
+  if (lastModifiedColIndex !== -1) {
+    sheet.getRange(row, lastModifiedColIndex + 1).setValue(new Date());
+  }
 
-  // Update the "Last Modified" column for that row
-  sheet.getRange(row, lastModifiedColIndex + 1).setValue(new Date());
+  // Clear Email Notified if Due Date changed
+  if (col === dueDateColIndex + 1 && emailNotifiedColIndex !== -1) {
+    sheet.getRange(row, emailNotifiedColIndex + 1).clearContent();
+  }
 }
