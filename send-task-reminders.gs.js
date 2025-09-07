@@ -62,6 +62,13 @@ function sendTaskSummary() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const data = sheet.getDataRange().getValues();
   const email = "erickles@us.ibm.com";
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
+
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    Logger.log("Skipping daily summary on weekend.");
+    return;
+  }
 
   let openTasks = [];
 

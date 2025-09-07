@@ -12,8 +12,8 @@ It allows you to submit, track, and receive reminders for tasks — all using fr
 - ✅ Set task status (Open, In Progress, Complete)
 - ✅ Mark priority (High, Medium, Low)
 - ✅ Automatically receive:
-  - 📬 Daily reminders for tasks due today
-  - 📊 Daily summary of all open tasks
+  - 📬 Daily reminders for tasks due today (resends if due date is changed)
+  - 📊 Daily summary of all open tasks (skips weekends)
 - ✅ Automatically generate a unique Task ID
 - ✅ Track last modified date for each task
 - ✅ Auto-archives completed tasks and stamps archive date
@@ -36,7 +36,7 @@ It allows you to submit, track, and receive reminders for tasks — all using fr
 | `Priority` | High / Medium / Low |
 | `Task ID` | Auto-generated unique task identifier |
 | `Last Modified` | Timestamp of last manual edit (auto-updated) |
-| `Email Notified` | Timestamp when email reminder was sent |
+| `Email Notified` | Timestamp when email reminder was last sent |
 | `Date Archived` | (In Archive tab) Date the task was moved to archive |
 
 ---
@@ -46,8 +46,9 @@ It allows you to submit, track, and receive reminders for tasks — all using fr
 - Sends reminders only for:
   - Tasks due **today**
   - With `Send Reminder?` = "Yes"
-  - That have **not already received** a notification
-- Updates `Email Notified` column with the current timestamp upon success
+  - That have **not already received a reminder today**
+- If the **due date is edited**, the `Email Notified` field is cleared so the reminder will send again
+- Skips reminder emails for **weekends**
 
 ---
 
@@ -86,6 +87,8 @@ Due dates are color-coded based on urgency:
 - [x] Last Modified timestamp via onEdit()
 - [x] Auto-archive completed tasks
 - [x] Add `Date Archived` column and value
+- [x] Skip daily summary emails on weekends
+- [x] Reset reminders if due date changes
 - [ ] Mobile UX enhancements (shortcuts, layout)
 - [ ] Dashboard tab (charts, filters)
 - [ ] Calendar view integration (Google Calendar or Sheets calendar layout)
