@@ -115,13 +115,16 @@ function archiveCompletedTasks() {
 
   const data = mainSheet.getDataRange().getValues();
   const headers = data[0];
-  const statusColIndex = 4; // Column E = Status
+  const statusColIndex = headers.indexOf("Status");
+  const dueDateColIndex = headers.indexOf("Due Date");
+  const recurringColIndex = headers.indexOf("Recurring?");
+  const repeatEveryColIndex = headers.indexOf("Repeat Every");
   const dateArchivedLabel = "Date Archived";
+  const taskIdColIndex = headers.indexOf("Task ID");
 
   // Ensure Archive sheet has headers
   let archiveHeaders = [];
   const lastCol = archiveSheet.getLastColumn();
-
   if (lastCol > 0) {
     archiveHeaders = archiveSheet.getRange(1, 1, 1, lastCol).getValues()[0];
   }
@@ -142,33 +145,60 @@ function archiveCompletedTasks() {
     if (status && status.toLowerCase() === "complete") {
       const rowWithArchiveDate = [...row];
 
+      // Ensure row has enough columns for date archived
       while (rowWithArchiveDate.length <= dateArchivedCol) {
         rowWithArchiveDate.push("");
       }
 
-      rowWithArchiveDate[dateArchivedCol] = new Date(); // Set archive timestamp
-      rowsToArchive.unshift(rowWithArchiveDate);        // Preserve original order
+      rowWithArchiveDate[dateArchivedCol] = new Date();
+      rowsToArchive.unshift(rowWithArchiveDate);
 
-      mainSheet.deleteRow(i + 1); // Delete row from original sheet
+      // ➕ Handle Recurring Tasks
+      const isRecurring = row[recurringColIndex] && row[recurringColIndex].toString().toLowerCase() === "yes";
+      const repeatInterval = parseInt(row[repeatEveryColIndex], 10);
+
+      if (isRecurring && !isNaN(repeatInterval) && dueDateColIndex !== -1) {
+        const newRow = [...row];
+
+        // Update due date
+        const oldDueDate = row[dueDateColIndex];
+        if (oldDueDate instanceof Date) {
+          const newDueDate = new Date(oldDueDate);
+          newDueDate.setDate(newDueDate.getDate() + repeatInterval);
+          newRow[dueDateColIndex] = newDueDate;
+        }
+
+        // Reset status, notification, and modification fields
+        newRow[statusColIndex] = "Open";
+        if (taskIdColIndex !== -1) newRow[taskIdColIndex] = Utilities.getUuid();
+
+        const lastModifiedColIndex = headers.indexOf("Last Modified");
+        const emailNotifiedColIndex = headers.indexOf("Email Notified");
+        if (lastModifiedColIndex !== -1) newRow[lastModifiedColIndex] = "";
+        if (emailNotifiedColIndex !== -1) newRow[emailNotifiedColIndex] = "";
+
+        // Append new task
+        mainSheet.appendRow(newRow);
+      }
+
+      // Delete completed task from main sheet
+      mainSheet.deleteRow(i + 1);
     }
   }
 
-  // Write headers if archive sheet is currently empty
+  // If archive is empty, write headers
   if (archiveSheet.getLastRow() === 0) {
     const fullHeaders = [...headers];
-
     while (fullHeaders.length <= dateArchivedCol) {
       fullHeaders.push("");
     }
-
     fullHeaders[dateArchivedCol] = dateArchivedLabel;
     archiveSheet.appendRow(fullHeaders);
   }
 
-  // Append all archived tasks
+  // Write archived tasks
   rowsToArchive.forEach(row => archiveSheet.appendRow(row));
 }
-
 
 
 function onFormSubmit(e) {

@@ -17,6 +17,7 @@ It allows you to submit, track, and receive reminders for tasks — all using fr
 - ✅ Automatically generate a unique Task ID
 - ✅ Track last modified date for each task
 - ✅ Auto-archives completed tasks and stamps archive date
+- ✅ Recreates recurring tasks with updated due dates (e.g., every 7 days)
 - ✅ Color-coded task urgency and priority
 - ✅ Editable directly in Google Sheets (manual task creation also supported)
 - ✅ Works on mobile via Google Sheets app and form link
@@ -38,6 +39,21 @@ It allows you to submit, track, and receive reminders for tasks — all using fr
 | `Last Modified` | Timestamp of last manual edit (auto-updated) |
 | `Email Notified` | Timestamp when email reminder was last sent |
 | `Date Archived` | (In Archive tab) Date the task was moved to archive |
+| `Recurring?` | `Yes` if the task should be recreated when completed |
+| `Repeat Every` | Days between recurrence (e.g., 7 for weekly) |
+
+---
+
+## 🔁 Recurring Task Logic
+
+- If `Status = Complete` **and** `Recurring? = Yes`:
+  - The task is archived
+  - A **new row is created** with:
+    - Same task info
+    - Due date incremented by `Repeat Every` days
+    - `Status = Open`, cleared notification fields, new Task ID
+- Recurring settings are now supported via the Google Form
+- Repeat interval is set in **days**
 
 ---
 
@@ -59,6 +75,7 @@ It allows you to submit, track, and receive reminders for tasks — all using fr
 - Adds a `Date Archived` column and timestamp per task
 - Preserves full row content and column order
 - Can be triggered manually or scheduled (e.g., daily)
+- Re-creates recurring tasks before archiving the original
 
 ---
 
@@ -89,6 +106,7 @@ Due dates are color-coded based on urgency:
 - [x] Add `Date Archived` column and value
 - [x] Skip daily summary emails on weekends
 - [x] Reset reminders if due date changes
+- [x] Support recurring tasks via form or sheet
 - [ ] Mobile UX enhancements (shortcuts, layout)
 - [ ] Dashboard tab (charts, filters)
 - [ ] Calendar view integration (Google Calendar or Sheets calendar layout)
