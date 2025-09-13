@@ -201,6 +201,7 @@ function archiveCompletedTasks() {
 }
 
 
+
 function onFormSubmit(e) {
   generateMissingTaskIDs();
   reapplyFormattingWithRefresh();
@@ -275,3 +276,8 @@ function onEdit(e) {
     sheet.getRange(row, emailNotifiedColIndex + 1).clearContent();
   }
 }
+
+
+
+
+

@@ -1,0 +1,29 @@
+# Node dependencies
+node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local env/config
+.env
+.env.local
+*.local.json
+
+# Build / dist artifacts
+dist/
+build/
+
+# VSCode & IDE files
+.vscode/
+.idea/
+
+# clasp auth/session files
+.clasp.json
+.claspignore
+appsscript.json.backup
+
+# OS junk
+.DS_Store
+Thumbs.db

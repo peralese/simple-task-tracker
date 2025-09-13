@@ -21,6 +21,7 @@ It allows you to submit, track, and receive reminders for tasks — all using fr
 - ✅ Color-coded task urgency and priority
 - ✅ Editable directly in Google Sheets (manual task creation also supported)
 - ✅ Works on mobile via Google Sheets app and form link
+- ✅ Local development supported with **clasp** (Apps Script CLI)
 
 ---
 
@@ -52,7 +53,7 @@ It allows you to submit, track, and receive reminders for tasks — all using fr
     - Same task info
     - Due date incremented by `Repeat Every` days
     - `Status = Open`, cleared notification fields, new Task ID
-- Recurring settings are now supported via the Google Form
+- Recurring settings are supported via the Google Form
 - Repeat interval is set in **days**
 
 ---
@@ -95,6 +96,66 @@ Due dates are color-coded based on urgency:
 
 ---
 
+## 💻 Local Development with clasp
+
+We now support **local editing + GitHub integration** using Google’s official CLI: [clasp](https://github.com/google/clasp).
+
+### Setup
+1. Install clasp:
+   ```bash
+   npm install -g @google/clasp
+   clasp login
+   ```
+2. Clone your Apps Script project:
+   ```bash
+   clasp clone <SCRIPT_ID>
+   ```
+3. Project structure:
+   ```
+   task-tracker/
+     src/
+       send-task-reminders.gs
+       ui-quick-actions.gs
+       quick_add.html
+     appsscript.json
+     .clasp.json
+     .claspignore
+     .gitignore
+   ```
+
+### `.claspignore`
+Controls what gets pushed to Google Apps Script:
+```txt
+**/*
+!appsscript.json
+!src/**
+
+node_modules/**
+.git/**
+.vscode/**
+.env
+**/*.map
+```
+
+### `.gitignore`
+Controls what goes to GitHub:
+```gitignore
+node_modules/
+.env
+.vscode/
+.idea/
+dist/
+build/
+.DS_Store
+Thumbs.db
+
+.clasp.json
+.claspignore
+appsscript.json.backup
+```
+
+---
+
 ## 🛠 Roadmap
 
 - [x] Google Form for task submission
@@ -107,6 +168,7 @@ Due dates are color-coded based on urgency:
 - [x] Skip daily summary emails on weekends
 - [x] Reset reminders if due date changes
 - [x] Support recurring tasks via form or sheet
+- [x] Local dev workflow with clasp, `.claspignore`, `.gitignore`
 - [ ] Mobile UX enhancements (shortcuts, layout)
 - [ ] Dashboard tab (charts, filters)
 - [ ] Calendar view integration (Google Calendar or Sheets calendar layout)
