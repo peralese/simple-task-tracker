@@ -1,131 +1,173 @@
-# 📝 Task Tracker App (No-Code, Google Apps Script)
+# 📝 Task Tracker App (Google Sheets + Apps Script)
 
-A personal task tracking application built with **Google Forms**, **Google Sheets**, and **Google Apps Script**.  
-It allows you to submit, track, and receive reminders for tasks — all using free Google tools, optimized for both desktop and mobile use.
-
----
-
-## 🚀 Features
-
-- ✅ Add tasks via a Google Form (mobile-friendly)
-- ✅ Attach notes, due dates, and reminders
-- ✅ Set task status (Open, In Progress, Complete)
-- ✅ Mark priority (High, Medium, Low)
-- ✅ Automatically receive:
-  - 📬 Daily reminders for tasks due today (resends if due date is changed)
-  - 📊 Daily summary of all open tasks (skips weekends)
-- ✅ Automatically generate a unique Task ID
-- ✅ Track last modified date for each task
-- ✅ Auto-archives completed tasks and stamps archive date
-- ✅ Recreates recurring tasks with updated due dates (e.g., every 7 days)
-- ✅ Color-coded task urgency and priority
-- ✅ Editable directly in Google Sheets (manual task creation also supported)
-- ✅ Works on mobile via Google Sheets app and form link
-- ✅ Local development supported with **clasp** (Apps Script CLI)
+A personal task tracker built with **Google Forms**, **Google Sheets**, and **Google Apps Script**.  
+Submit tasks from your phone, see them in Sheets, get email reminders, and automatically roll recurring tasks forward.
 
 ---
 
-## 🧾 Google Sheet Columns Used
+## What’s new (2025‑09‑29)
 
-| Column | Description |
-|--------|-------------|
-| `Timestamp` | Auto-generated from Google Form |
-| `Task Name` | Short task title |
-| `Notes` | Detailed notes about the task |
-| `Due Date` | Used for reminders and urgency color-coding |
-| `Status` | Open / In Progress / Complete |
-| `Send Reminder?` | Checkbox from form submission |
-| `Priority` | High / Medium / Low |
-| `Task ID` | Auto-generated unique task identifier |
-| `Last Modified` | Timestamp of last manual edit (auto-updated) |
-| `Email Notified` | Timestamp when email reminder was last sent |
-| `Date Archived` | (In Archive tab) Date the task was moved to archive |
-| `Recurring?` | `Yes` if the task should be recreated when completed |
-| `Repeat Every` | Days between recurrence (e.g., 7 for weekly) |
+- **Recurring tasks are hardened**: works with checkbox values (`TRUE/FALSE`) or text (`Yes/True/Y/1/✓`).  
+- **Header row auto‑detect**: the script locates the real header row (not assumed to be row 1).  
+- **Flexible headers**: tolerates variants like `Send Reminder?` vs `Reminder`, `Task Name` vs `Task`.  
+- **Archive + Recreate flow** refined: appends the next occurrence before deleting the completed row; archives to an **Archive** sheet with **Date Archived**.  
+- **Daily trigger installer**: one function creates time‑based triggers for archive/summary/reminders (idempotent).  
+- **Weekend skip**: daily summary skips Sat/Sun by default.
+- **Explicit sheet targeting**: set `CONFIG.SHEET_NAME` to your data tab (e.g., `Form_Responses`). Fallback auto‑detect is included.
 
 ---
 
-## 🔁 Recurring Task Logic
+## Features
 
-- If `Status = Complete` **and** `Recurring? = Yes`:
-  - The task is archived
-  - A **new row is created** with:
-    - Same task info
-    - Due date incremented by `Repeat Every` days
-    - `Status = Open`, cleared notification fields, new Task ID
-- Recurring settings are supported via the Google Form
-- Repeat interval is set in **days**
-
----
-
-## 📧 Reminder Behavior
-
-- Sends reminders only for:
-  - Tasks due **today**
-  - With `Send Reminder?` = "Yes"
-  - That have **not already received a reminder today**
-- If the **due date is edited**, the `Email Notified` field is cleared so the reminder will send again
-- Skips reminder emails for **weekends**
+- Add tasks with: Task Name, Notes, **Due Date**, **Status** (Open/In Progress/Complete), **Priority**, **Send Reminder?**.
+- **Email reminders** for tasks due **today** (stamps `Email Notified` to avoid duplicate sends).  
+- **Daily summary** email of **open** tasks (skips weekends).  
+- **Auto‑archive** completed tasks to `Archive` and stamp `Date Archived`.  
+- **Recurring tasks**: when a completed task is marked recurring, a fresh “Open” row is created with Due Date pushed forward by `Repeat Every` days and a new Task ID.  
+- **On‑edit hygiene**: `Last Modified` is updated on any edit; changing `Due Date` clears `Email Notified` so the reminder can resend on the new date.
+- **Local editing via `clasp`** (optional) with `.claspignore` / `.gitignore` recipes included.
 
 ---
 
-## 📦 Auto-Archive Behavior
+## Sheet structure (columns)
 
-- Moves rows where `Status = Complete` to a separate sheet named `Archive`
-- Automatically creates `Archive` sheet if it doesn’t exist
-- Adds a `Date Archived` column and timestamp per task
-- Preserves full row content and column order
-- Can be triggered manually or scheduled (e.g., daily)
-- Re-creates recurring tasks before archiving the original
+The code is flexible, but expect a table with headers similar to the following (names may vary slightly):
 
----
+| Column            | Notes                                                                 |
+|-------------------|-----------------------------------------------------------------------|
+| `Timestamp`       | From the Form                                                         |
+| `Task Name`       | Short title (`Task` also accepted)                                    |
+| `Notes`           | Optional details                                                      |
+| `Due Date`        | A real date value (not text)                                          |
+| `Status`          | `Open`, `In Progress`, or `Complete`                                  |
+| `Send Reminder?`  | Checkbox/text; “Yes” values trigger reminders                         |
+| `Priority`        | `High` / `Medium` / `Low`                                             |
+| `Recurring?`      | **Checkbox** `TRUE/FALSE` or text “Yes/True/Y/1/✓”                    |
+| `Repeat Every`    | **Number of days** (e.g., 7)                                          |
+| `Task ID`         | Auto‑generated if blank                                               |
+| `Email Notified`  | Timestamp set when reminder email is sent                             |
+| `Last Modified`   | Auto‑stamped on edits                                                 |
 
-## 🗂️ Priority and Due Date Color Coding
-
-| Priority | Style |
-|----------|-------|
-| High     | 🔴 Red |
-| Medium   | 🟠 Orange |
-| Low      | 🟢 Green |
-
-Due dates are color-coded based on urgency:
-- 🔴 Overdue
-- 🟡 Due Today
-- 🟢 Due Tomorrow (optional rule)
-- ⚫ Complete (gray)
+> The `Archive` sheet is auto‑created and gets a `Date Archived` column added automatically.
 
 ---
 
-## 💻 Local Development with clasp
+## Configuration
 
-We now support **local editing + GitHub integration** using Google’s official CLI: [clasp](https://github.com/google/clasp).
+Open `Code.js` and set:
 
-### Setup
-1. Install clasp:
-   ```bash
-   npm install -g @google/clasp
-   clasp login
-   ```
-2. Clone your Apps Script project:
-   ```bash
-   clasp clone <SCRIPT_ID>
-   ```
-3. Project structure:
-   ```
-   task-tracker/
-     src/
-       send-task-reminders.gs
-       ui-quick-actions.gs
-       quick_add.html
-     appsscript.json
-     .clasp.json
-     .claspignore
-     .gitignore
-   ```
+```js
+const CONFIG = {
+  SHEET_NAME: "Form_Responses",      // <-- your data tab
+  ARCHIVE_SHEET_NAME: "Archive",
+  RECIPIENT_EMAIL: "you@example.com"
+};
+```
 
-### `.claspignore`
-Controls what gets pushed to Google Apps Script:
-```txt
+- If `SHEET_NAME` isn’t found, the script tries to **auto‑detect** the data sheet by scanning for common headers.  
+- Time zone is taken from the spreadsheet (File → Settings).
+
+---
+
+## Install the daily triggers (Option A)
+
+Run this **once** from the Apps Script editor:
+
+1. Open **`trigger.gs`**.
+2. Run **`ensureDailyTriggers`** and approve scopes.
+3. Verify under **Triggers (⏰ icon)** you now have three time‑driven entries:
+   - `archiveCompletedTasks` (daily)
+   - `sendTaskSummary` (daily; **weekend skip** inside the function)
+   - `sendTaskReminders` (daily)
+
+Helpful utilities (optional):
+- `listTriggers()` → prints triggers to Logs
+- `clearTimeBasedTriggers()` → removes time‑based triggers so you can reinstall
+
+---
+
+## How recurrence works
+
+When `archiveCompletedTasks` runs (by trigger or manual test):
+
+1. Rows with `Status = Complete` are copied to **Archive** and stamped with **Date Archived**.
+2. If the row is **recurring** and valid:
+   - `Recurring?` is truthy (checkbox `TRUE` or a “yes‑ish” value);
+   - `Repeat Every` is a finite **number > 0** (days);
+   - `Due Date` is a valid **Date**;
+   then the script **appends a new row** with:
+   - `Status = Open`
+   - `Due Date = old Due Date + Repeat Every`
+   - new `Task ID`
+   - `Email Notified` cleared, `Last Modified` updated
+3. The original completed row is deleted from the main sheet (it remains in `Archive`).
+
+**Why a task may _not_ be recreated**:
+- `Recurring?` is unchecked/empty or evaluates to false.  
+- `Repeat Every` is text or non‑numeric (e.g., “N/A”).  
+- `Due Date` cell contains text instead of a Date value.  
+- The column headers weren’t detected (uncommon) — see Troubleshooting.
+
+---
+
+## Manual smoke tests
+
+You can test without waiting for the morning trigger:
+
+1. Create a test row with:
+   - `Status = Complete`
+   - `Recurring? = TRUE` (checkbox) or `Yes`
+   - `Repeat Every = 7`
+   - `Due Date =` today (or any valid date)
+2. In Apps Script, **Run → `archiveCompletedTasks`**.
+3. Expected results:
+   - The row is moved to **Archive** and stamped with **Date Archived**.
+   - A **new “Open” row** appears in the main sheet with Due Date = previous + 7 days.
+
+To test reminders:
+- Create a row with `Status = Open`, `Due Date = today`, `Send Reminder? = Yes`, `Email Notified` blank.
+- Run **`sendTaskReminders`**. You should get an email and the row will be stamped in `Email Notified`.
+
+To test daily summary (skips weekends by default):
+- Run **`sendTaskSummary`** on a weekday. It will email a table of open tasks.
+
+---
+
+## Troubleshooting
+
+- **“Row N: COMPLETE. recurring=false …” in Logs**  
+  The `Recurring?` cell evaluated to false. For checkboxes it must be **checked** (TRUE). For text, accepted values include “Yes/True/Y/1/✓”.
+
+- **“Repeat Every invalid/zero”**  
+  Make sure the cell is a **number** (e.g., `7`) — not `N/A` or text.
+
+- **“Due Date missing/invalid”**  
+  Re‑enter the Due Date as a date (left‑aligned text is a red flag).
+
+- **“Missing ‘Status’ column; aborting.”**  
+  The script couldn’t find headers near the top. We now **auto‑detect** the header row by scanning the first 10 rows.  
+  If your header is deeper, open `Code.js` and increase the scan window in `_locateHeaderRow` (e.g., to 25).
+
+- **No emails**  
+  Confirm `RECIPIENT_EMAIL` and check **Apps Script → Executions** for errors. Summary intentionally skips weekends.
+
+- **Wrong sheet**  
+  Ensure `CONFIG.SHEET_NAME` matches your tab (e.g., `Form_Responses`). You can also rely on the auto‑detect fallback.
+
+---
+
+## Local development (optional) with `clasp`
+
+```bash
+npm i -g @google/clasp
+clasp login
+clasp clone <SCRIPT_ID>
+# edit locally, then
+clasp push
+```
+
+**.claspignore** (push only `appsscript.json` and `src/**`):
+```
 **/*
 !appsscript.json
 !src/**
@@ -137,9 +179,8 @@ node_modules/**
 **/*.map
 ```
 
-### `.gitignore`
-Controls what goes to GitHub:
-```gitignore
+**.gitignore**:
+```
 node_modules/
 .env
 .vscode/
@@ -156,34 +197,26 @@ appsscript.json.backup
 
 ---
 
-## 🛠 Roadmap
+## Roadmap
 
-- [x] Google Form for task submission
-- [x] Reminder and summary email automation
-- [x] Priority dropdown + color formatting
-- [x] Auto-generate Task ID
-- [x] Last Modified timestamp via onEdit()
-- [x] Auto-archive completed tasks
-- [x] Add `Date Archived` column and value
-- [x] Skip daily summary emails on weekends
-- [x] Reset reminders if due date changes
-- [x] Support recurring tasks via form or sheet
-- [x] Local dev workflow with clasp, `.claspignore`, `.gitignore`
-- [ ] Mobile UX enhancements (shortcuts, layout)
-- [ ] Dashboard tab (charts, filters)
-- [ ] Calendar view integration (Google Calendar or Sheets calendar layout)
+- [x] Email reminders + daily summary (skip weekends)
+- [x] Auto‑archive and recurring task recreation
+- [x] Trigger installer & helpers
+- [x] Flexible headers + checkbox‑friendly recurrence
+- [x] Header row auto‑detection
+- [ ] Dashboard tab (filters & charts)
+- [ ] Calendar‑style view
+- [ ] Mobile quick actions / shortcuts
 
 ---
 
-## License 
+## License
 
-MIT License
-
-You are free to use, modify, and distribute this tool with attribution.
+MIT
 
 ---
 
 ## Author
 
 **Erick Perales** — IT Architect, Cloud Migration Specialist  
-[https://github.com/peralese](https://github.com/peralese)
+<https://github.com/peralese>

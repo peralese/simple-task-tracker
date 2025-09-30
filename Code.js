@@ -1,206 +1,297 @@
+/** ============================================================================
+ * Task Tracker – Core logic (auto-detect header row + checkbox-friendly logic)
+ * ========================================================================== */
+
+const CONFIG = {
+  SHEET_NAME: "Form_Responses",          // your tab; we also fall back to auto-detect
+  ARCHIVE_SHEET_NAME: "Archive",
+  RECIPIENT_EMAIL: "erickles@us.ibm.com", // change if needed
+};
+
+/** ---------- Helpers ---------- **/
+
+function _normHeader(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[\s\-\_\/\\\?\.\:\;\,\(\)\[\]\{\}]+/g, " ")
+    .trim()
+    .replace(/\s+/g, "");
+}
+function _findColIdx(headers, candidates) {
+  const map = {};
+  headers.forEach((h, i) => (map[_normHeader(h)] = i));
+  for (const c of candidates) {
+    const k = _normHeader(c);
+    if (k in map) return map[k];
+  }
+  return -1;
+}
+function _isYes(val) {
+  if (val === true) return true; // checkbox TRUE
+  const s = String(val || "").trim().toLowerCase();
+  return ["yes", "y", "true", "1", "x", "✓", "checked"].includes(s);
+}
+function _toNumberOrZero(val) {
+  if (typeof val === "number") return Number.isFinite(val) ? val : 0;
+  const n = parseFloat(String(val || "").trim());
+  return Number.isFinite(n) ? n : 0;
+}
+function _toDateOrNull(val) {
+  if (val instanceof Date) return new Date(val);
+  if (!val) return null;
+  const d = new Date(val);
+  return Number.isFinite(d.getTime()) ? d : null;
+}
+
+function getDataSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(CONFIG.SHEET_NAME);
+  if (sh) return sh;
+
+  // Fallback: pick the first sheet that looks like the task table
+  for (const s of ss.getSheets()) {
+    const lastCol = s.getLastColumn();
+    if (lastCol < 2) continue;
+    const headers = s.getRange(1, 1, 1, lastCol).getValues()[0];
+    const statusIdx = _findColIdx(headers, ["Status"]);
+    const dueIdx = _findColIdx(headers, ["Due Date", "Due"]);
+    if (statusIdx !== -1 && dueIdx !== -1) return s;
+  }
+  throw new Error('Could not find data sheet. Set CONFIG.SHEET_NAME to your tab (e.g., "Form_Responses").');
+}
+
+/** Find the row that actually contains headers (search first 10 rows). */
+function _locateHeaderRow(sheet) {
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  const scanRows = Math.min(10, lastRow || 0);
+
+  for (let r = 1; r <= scanRows; r++) {
+    const headers = sheet.getRange(r, 1, 1, lastCol).getValues()[0];
+    const hasStatus = _findColIdx(headers, ["Status"]) !== -1;
+    const hasDue = _findColIdx(headers, ["Due Date", "Due"]) !== -1;
+    const hasTask = _findColIdx(headers, ["Task", "Task Name"]) !== -1;
+    if (hasStatus && (hasDue || hasTask)) return { headerRow: r, headers, lastCol };
+  }
+  throw new Error('Could not find a header row with a "Status" column in the first 10 rows.');
+}
+
+/** Build a column resolver tied to the detected header row. */
+function _getTableContext(sheet) {
+  const { headerRow, headers, lastCol } = _locateHeaderRow(sheet);
+  const col = function () {
+    return _findColIdx(headers, Array.from(arguments));
+  };
+  return { headerRow, headers, lastCol, col };
+}
+
+/** ---------- Emails ---------- **/
+
 function sendTaskReminders() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  const data = sheet.getDataRange().getValues();
+  const sheet = getDataSheet();
+  const { headerRow, col } = _getTableContext(sheet);
+
+  const dataStart = headerRow + 1;
+  const lastRow = sheet.getLastRow();
+  if (lastRow < dataStart) return;
+
+  const range = sheet.getRange(dataStart, 1, lastRow - headerRow, sheet.getLastColumn());
+  const data = range.getValues();
+
+  const taskNameIdx = col("Task", "Task Name");
+  const notesIdx = col("Notes", "Note");
+  const dueDateIdx = col("Due Date", "Due");
+  const statusIdx = col("Status");
+  const remindIdx = col("Send Reminder?", "Reminder", "Remind");
+  const emailNotifiedIdx = col("Email Notified", "Notified");
+
   const today = new Date();
-  const email = "erickles@us.ibm.com";  // hardcoded recipient
+  const tasksDueToday = [];
 
-  let tasksDueToday = [];
-
-  // Skip header row
-  for (let i = 1; i < data.length; i++) {
+  for (let i = 0; i < data.length; i++) {
     const row = data[i];
 
-    const taskName = row[1];         // Column B
-    const notes = row[2];            // Column C
-    const dueDate = row[3];          // Column D
-    const status = row[4];           // Column E
-    const sendReminder = row[5];     // Column F – "Yes, send me a reminder for this task"
-    const emailNotified = row[9];    // Column J – previously recorded timestamp
+    if (!_isYes(row[remindIdx])) continue;
+    if (emailNotifiedIdx !== -1 && row[emailNotifiedIdx]) continue;
+    if (String(row[statusIdx] || "").toLowerCase() === "complete") continue;
 
-    // Only process tasks where reminder is requested
-    if (!sendReminder || sendReminder.toString().toLowerCase().indexOf("yes") === -1) continue;
+    const d = _toDateOrNull(row[dueDateIdx]);
+    if (!d) continue;
 
-    // Only process if reminder hasn't already been sent
-    if (emailNotified && emailNotified !== "") continue;
+    const isToday =
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth() === today.getMonth() &&
+      d.getDate() === today.getDate();
 
-    // Match due date to today
-    if (dueDate instanceof Date &&
-        dueDate.getFullYear() === today.getFullYear() &&
-        dueDate.getMonth() === today.getMonth() &&
-        dueDate.getDate() === today.getDate()) {
-
+    if (isToday) {
       tasksDueToday.push({
-        rowIndex: i + 1,
-        taskName,
-        notes
+        sheetRow: dataStart + i,
+        taskName: taskNameIdx !== -1 ? row[taskNameIdx] : "",
+        notes: notesIdx !== -1 ? row[notesIdx] : "",
       });
     }
   }
 
   if (tasksDueToday.length === 0) return;
 
-  // Build email body
   let body = `<h3>📋 Task Reminders Due Today</h3><ul>`;
-  tasksDueToday.forEach(task => {
-    body += `<li><strong>${task.taskName}</strong> – ${task.notes || ''}</li>`;
+  tasksDueToday.forEach((t) => {
+    body += `<li><strong>${t.taskName || "(untitled)"}</strong>${t.notes ? ` – ${t.notes}` : ""}</li>`;
   });
   body += `</ul>`;
 
-  // Send email
-  GmailApp.sendEmail(email, "🕒 Task Reminder – Tasks Due Today", "", {
-    htmlBody: body
+  GmailApp.sendEmail(CONFIG.RECIPIENT_EMAIL, "🕒 Task Reminder – Tasks Due Today", "", {
+    htmlBody: body,
   });
 
-  // Mark tasks as notified (write timestamp to Column J)
-  tasksDueToday.forEach(task => {
-    const emailNotifiedCol = 10; // Column J
-    sheet.getRange(task.rowIndex, emailNotifiedCol).setValue(new Date());
-  });
+  if (emailNotifiedIdx !== -1) {
+    tasksDueToday.forEach((t) => sheet.getRange(t.sheetRow, emailNotifiedIdx + 1).setValue(new Date()));
+  }
 }
 
 function sendTaskSummary() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  const data = sheet.getDataRange().getValues();
-  const email = "erickles@us.ibm.com";
-  const today = new Date();
-  const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
+  const sheet = getDataSheet();
+  const { headerRow, col } = _getTableContext(sheet);
 
-  if (dayOfWeek === 0 || dayOfWeek === 6) {
-    Logger.log("Skipping daily summary on weekend.");
-    return;
-  }
+  // Weekend skip
+  const day = new Date().getDay(); // 0=Sun,6=Sat
+  if (day === 0 || day === 6) return;
 
-  let openTasks = [];
+  const dataStart = headerRow + 1;
+  const lastRow = sheet.getLastRow();
+  if (lastRow < dataStart) return;
 
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    const taskName = row[1];
-    const notes = row[2];
-    const dueDate = row[3];
-    const status = row[4];
+  const range = sheet.getRange(dataStart, 1, lastRow - headerRow, sheet.getLastColumn());
+  const data = range.getValues();
 
+  const taskNameIdx = col("Task", "Task Name");
+  const notesIdx = col("Notes", "Note");
+  const dueDateIdx = col("Due Date", "Due");
+  const statusIdx = col("Status");
+
+  const tz = Session.getScriptTimeZone();
+  const openTasks = [];
+
+  for (const row of data) {
+    const status = String(row[statusIdx] || "");
     if (status && status.toLowerCase() !== "complete") {
+      const d = _toDateOrNull(row[dueDateIdx]);
+      const dueStr = d ? Utilities.formatDate(d, tz, "yyyy-MM-dd") : String(row[dueDateIdx] || "");
       openTasks.push({
-        taskName,
-        notes,
-        dueDate: dueDate instanceof Date ? Utilities.formatDate(dueDate, Session.getScriptTimeZone(), "yyyy-MM-dd") : dueDate,
-        status
+        taskName: taskNameIdx !== -1 ? row[taskNameIdx] : "",
+        notes: notesIdx !== -1 ? row[notesIdx] : "",
+        dueStr,
+        status,
       });
     }
   }
-
   if (openTasks.length === 0) return;
 
-  let body = `<h3>🗂️ Daily Task Summary – Open Tasks</h3><table border="1" cellpadding="4" cellspacing="0"><tr><th>Task</th><th>Notes</th><th>Due Date</th><th>Status</th></tr>`;
-
-  openTasks.forEach(task => {
-    body += `<tr><td>${task.taskName}</td><td>${task.notes || ""}</td><td>${task.dueDate}</td><td>${task.status}</td></tr>`;
+  let body =
+    `<h3>🗂️ Daily Task Summary – Open Tasks</h3>` +
+    `<table border="1" cellpadding="4" cellspacing="0"><tr><th>Task</th><th>Notes</th><th>Due Date</th><th>Status</th></tr>`;
+  openTasks.forEach((t) => {
+    body += `<tr><td>${t.taskName || ""}</td><td>${t.notes || ""}</td><td>${t.dueStr}</td><td>${t.status}</td></tr>`;
   });
-
   body += `</table>`;
 
-  GmailApp.sendEmail(email, "🗓️ Daily Task Summary", "", {
-    htmlBody: body
-  });
+  GmailApp.sendEmail(CONFIG.RECIPIENT_EMAIL, "🗓️ Daily Task Summary", "", { htmlBody: body });
 }
 
+/** ---------- Archive + Recurrence ---------- **/
 function archiveCompletedTasks() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const mainSheet = ss.getSheetByName("Form Responses 1");
-  const archiveSheet = ss.getSheetByName("Archive") || ss.insertSheet("Archive");
+  const main = getDataSheet();
+  const { headerRow, headers, col } = _getTableContext(main);
 
-  if (!mainSheet) {
-    throw new Error('Main sheet "Form Responses 1" not found. Check the sheet/tab name.');
+  // Ensure Archive sheet + headers
+  const archive =
+    ss.getSheetByName(CONFIG.ARCHIVE_SHEET_NAME) ||
+    ss.insertSheet(CONFIG.ARCHIVE_SHEET_NAME);
+  const DATE_ARCHIVED = "Date Archived";
+  let archHeaders = archive.getLastColumn()
+    ? archive.getRange(1, 1, 1, archive.getLastColumn()).getValues()[0]
+    : [];
+  if (archHeaders.length === 0) {
+    archHeaders = headers.slice();
+    archHeaders.push(DATE_ARCHIVED);
+    archive.appendRow(archHeaders);
+  } else if (!archHeaders.includes(DATE_ARCHIVED)) {
+    archive.getRange(1, archHeaders.length + 1).setValue(DATE_ARCHIVED);
+    archHeaders = archive.getRange(1, 1, 1, archive.getLastColumn()).getValues()[0];
+  }
+  const dateArchivedIdx = archHeaders.indexOf(DATE_ARCHIVED);
+
+  // Column indexes from headers (flexible)
+  const statusIdx        = col("Status");
+  const dueDateIdx       = col("Due Date", "Due");
+  const recurringIdx     = col("Recurring?", "Recurring");
+  const repeatEveryIdx   = col("Repeat Every", "Repeat (days)", "Repeat Days", "Frequency (days)");
+  const taskIdIdx        = col("Task ID", "TaskID");
+  const lastModifiedIdx  = col("Last Modified", "Updated", "Modified");
+  const emailNotifiedIdx = col("Email Notified", "Notified");
+
+  if (statusIdx === -1) {
+    Logger.log('Missing "Status" column; aborting.');
+    return;
   }
 
-  const data = mainSheet.getDataRange().getValues();
-  const headers = data[0];
-  const statusColIndex = headers.indexOf("Status");
-  const dueDateColIndex = headers.indexOf("Due Date");
-  const recurringColIndex = headers.indexOf("Recurring?");
-  const repeatEveryColIndex = headers.indexOf("Repeat Every");
-  const dateArchivedLabel = "Date Archived";
-  const taskIdColIndex = headers.indexOf("Task ID");
+  const dataStart = headerRow + 1;
+  const lastRow = main.getLastRow();
+  if (lastRow < dataStart) return;
 
-  // Ensure Archive sheet has headers
-  let archiveHeaders = [];
-  const lastCol = archiveSheet.getLastColumn();
-  if (lastCol > 0) {
-    archiveHeaders = archiveSheet.getRange(1, 1, 1, lastCol).getValues()[0];
-  }
+  const values = main.getRange(dataStart, 1, lastRow - headerRow, main.getLastColumn()).getValues();
+  const rowsToDelete = [];
 
-  // Add "Date Archived" header if missing
-  if (!archiveHeaders.includes(dateArchivedLabel)) {
-    archiveSheet.getRange(1, archiveHeaders.length + 1).setValue(dateArchivedLabel);
-    archiveHeaders = archiveSheet.getRange(1, 1, 1, archiveSheet.getLastColumn()).getValues()[0];
-  }
+  // Process bottom-up to avoid index shifts
+  for (let i = values.length - 1; i >= 0; i--) {
+    const row = values[i];
+    const sheetRow = dataStart + i;
 
-  const dateArchivedCol = archiveHeaders.indexOf(dateArchivedLabel);
-  let rowsToArchive = [];
+    if (String(row[statusIdx] || "").trim().toLowerCase() !== "complete") continue;
 
-  for (let i = data.length - 1; i >= 1; i--) {
-    const row = data[i];
-    const status = row[statusColIndex];
+    // Archive copy with Date Archived
+    const archiveCopy = row.slice();
+    while (archiveCopy.length <= dateArchivedIdx) archiveCopy.push("");
+    archiveCopy[dateArchivedIdx] = new Date();
+    archive.appendRow(archiveCopy);
 
-    if (status && status.toLowerCase() === "complete") {
-      const rowWithArchiveDate = [...row];
+    // Recurrence
+    const isRecurring = recurringIdx !== -1 && _isYes(row[recurringIdx]);
+    const repeatDays  = repeatEveryIdx !== -1 ? _toNumberOrZero(row[repeatEveryIdx]) : 0;
+    const dueDate     = dueDateIdx !== -1 ? _toDateOrNull(row[dueDateIdx]) : null;
 
-      // Ensure row has enough columns for date archived
-      while (rowWithArchiveDate.length <= dateArchivedCol) {
-        rowWithArchiveDate.push("");
-      }
+    Logger.log(`Row ${sheetRow}: COMPLETE. recurring=${isRecurring} repeatDays=${repeatDays} dueDate=${dueDate}`);
 
-      rowWithArchiveDate[dateArchivedCol] = new Date();
-      rowsToArchive.unshift(rowWithArchiveDate);
+    if (isRecurring && repeatDays > 0 && dueDate) {
+      const newRow = row.slice();
 
-      // ➕ Handle Recurring Tasks
-      const isRecurring = row[recurringColIndex] && row[recurringColIndex].toString().toLowerCase() === "yes";
-      const repeatInterval = parseInt(row[repeatEveryColIndex], 10);
+      newRow[statusIdx] = "Open";
+      const nextDue = new Date(dueDate); nextDue.setDate(nextDue.getDate() + repeatDays);
+      if (dueDateIdx !== -1) newRow[dueDateIdx] = nextDue;
 
-      if (isRecurring && !isNaN(repeatInterval) && dueDateColIndex !== -1) {
-        const newRow = [...row];
+      if (taskIdIdx !== -1) newRow[taskIdIdx] = Utilities.getUuid();
+      if (emailNotifiedIdx !== -1) newRow[emailNotifiedIdx] = "";
+      if (lastModifiedIdx !== -1) newRow[lastModifiedIdx] = new Date();
 
-        // Update due date
-        const oldDueDate = row[dueDateColIndex];
-        if (oldDueDate instanceof Date) {
-          const newDueDate = new Date(oldDueDate);
-          newDueDate.setDate(newDueDate.getDate() + repeatInterval);
-          newRow[dueDateColIndex] = newDueDate;
-        }
-
-        // Reset status, notification, and modification fields
-        newRow[statusColIndex] = "Open";
-        if (taskIdColIndex !== -1) newRow[taskIdColIndex] = Utilities.getUuid();
-
-        const lastModifiedColIndex = headers.indexOf("Last Modified");
-        const emailNotifiedColIndex = headers.indexOf("Email Notified");
-        if (lastModifiedColIndex !== -1) newRow[lastModifiedColIndex] = "";
-        if (emailNotifiedColIndex !== -1) newRow[emailNotifiedColIndex] = "";
-
-        // Append new task
-        mainSheet.appendRow(newRow);
-      }
-
-      // Delete completed task from main sheet
-      mainSheet.deleteRow(i + 1);
+      main.appendRow(newRow);
+      Logger.log(`Row ${sheetRow}: Recurring task re-created for ${nextDue.toDateString()}.`);
+    } else {
+      if (!isRecurring) Logger.log(`Row ${sheetRow}: Not recurring; archived only.`);
+      else if (!(repeatDays > 0)) Logger.log(`Row ${sheetRow}: Repeat Every invalid/zero; skipped re-create.`);
+      else if (!dueDate) Logger.log(`Row ${sheetRow}: Due Date missing/invalid; skipped re-create.`);
     }
+
+    rowsToDelete.push(sheetRow);
   }
 
-  // If archive is empty, write headers
-  if (archiveSheet.getLastRow() === 0) {
-    const fullHeaders = [...headers];
-    while (fullHeaders.length <= dateArchivedCol) {
-      fullHeaders.push("");
-    }
-    fullHeaders[dateArchivedCol] = dateArchivedLabel;
-    archiveSheet.appendRow(fullHeaders);
-  }
+  // Delete originals, bottom-first
+  rowsToDelete.sort((a, b) => b - a).forEach((r) => main.deleteRow(r));
 
-  // Write archived tasks
-  rowsToArchive.forEach(row => archiveSheet.appendRow(row));
+  Logger.log(`Archived ${rowsToDelete.length} completed row(s).`);
 }
 
-
+/** ---------- Form + Edit hooks ---------- **/
 
 function onFormSubmit(e) {
   generateMissingTaskIDs();
@@ -208,76 +299,63 @@ function onFormSubmit(e) {
 }
 
 function reapplyFormattingWithRefresh() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form Responses 1"); // replace if needed
-  if (!sheet) throw new Error("Sheet not found.");
+  const sheet = getDataSheet();
+  const { headerRow } = _getTableContext(sheet);
 
-  const range = sheet.getDataRange();
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow <= headerRow) return;
+
+  const data = sheet.getRange(headerRow + 1, 1, lastRow - headerRow, lastCol).getValues();
+  const target = sheet.getRange(headerRow + 1, 1, data.length, data[0].length);
+
   const rules = sheet.getConditionalFormatRules();
-
-  // Reapply the formatting rules (this alone doesn't trigger a refresh)
-  sheet.setConditionalFormatRules([]);
-  sheet.setConditionalFormatRules(rules);
-
-  // Get all values excluding header
-  const data = range.getValues();
-  if (data.length <= 1) return; // no rows to reprocess
-
-  const dataOnly = data.slice(1); // exclude header
-  const targetRange = sheet.getRange(2, 1, dataOnly.length, dataOnly[0].length);
-
-  // Re-write values to force conditional formatting refresh
-  targetRange.setValues(dataOnly);
+  sheet.setConditionalFormatRules([]);   // clear
+  sheet.setConditionalFormatRules(rules); // reapply
+  target.setValues(data); // force refresh
 }
+
 function generateMissingTaskIDs() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form Responses 1"); // update sheet name if needed
-  if (!sheet) throw new Error("Sheet not found.");
+  const sheet = getDataSheet();
+  const { headerRow, col } = _getTableContext(sheet);
 
-  const dataRange = sheet.getDataRange();
-  const values = dataRange.getValues();
+  const taskIdIdx = col("Task ID", "TaskID");
+  if (taskIdIdx === -1) return;
 
-  const header = values[0];
-  const taskIdColIndex = header.indexOf("Task ID");
-  if (taskIdColIndex === -1) throw new Error("Task ID column not found.");
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow <= headerRow) return;
 
-  for (let i = 1; i < values.length; i++) {
-    const row = values[i];
-    const taskId = row[taskIdColIndex];
+  const tz = Session.getScriptTimeZone();
+  const data = sheet.getRange(headerRow + 1, 1, lastRow - headerRow, lastCol).getValues();
 
-    if (!taskId || taskId.toString().trim() === "") {
-      const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd");
-      const newId = `TASK-${today}-${("000" + (i + 1)).slice(-3)}`; // pad row number
-
-      sheet.getRange(i + 1, taskIdColIndex + 1).setValue(newId);
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const taskId = row[taskIdIdx];
+    if (!taskId || String(taskId).trim() === "") {
+      const today = Utilities.formatDate(new Date(), tz, "yyyyMMdd");
+      const newId = `TASK-${today}-${("000" + (i + 1)).slice(-3)}`;
+      sheet.getRange(headerRow + 1 + i, taskIdIdx + 1).setValue(newId);
     }
   }
 }
+
 function onEdit(e) {
-  const sheet = e.source.getSheetByName("Form Responses 1");
-  if (!sheet) return;
+  const sheet = getDataSheet();
+  if (e.range.getSheet().getName() !== sheet.getName()) return;
 
-  const range = e.range;
-  const row = range.getRow();
-  const col = range.getColumn();
+  const { headerRow, col } = _getTableContext(sheet);
+  const row = e.range.getRow();
+  if (row <= headerRow) return; // ignore header and above
 
-  if (row === 1) return; // skip header row
+  const lastModifiedIdx = col("Last Modified", "Updated", "Modified");
+  const dueDateIdx = col("Due Date", "Due");
+  const emailNotifiedIdx = col("Email Notified", "Notified");
 
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const lastModifiedColIndex = headers.indexOf("Last Modified");
-  const dueDateColIndex = headers.indexOf("Due Date");
-  const emailNotifiedColIndex = headers.indexOf("Email Notified");
-
-  // Update Last Modified
-  if (lastModifiedColIndex !== -1) {
-    sheet.getRange(row, lastModifiedColIndex + 1).setValue(new Date());
+  if (lastModifiedIdx !== -1) {
+    sheet.getRange(row, lastModifiedIdx + 1).setValue(new Date());
   }
-
-  // Clear Email Notified if Due Date changed
-  if (col === dueDateColIndex + 1 && emailNotifiedColIndex !== -1) {
-    sheet.getRange(row, emailNotifiedColIndex + 1).clearContent();
+  if (dueDateIdx !== -1 && emailNotifiedIdx !== -1 && e.range.getColumn() === dueDateIdx + 1) {
+    sheet.getRange(row, emailNotifiedIdx + 1).clearContent();
   }
 }
-
-
-
-
-
