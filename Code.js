@@ -1,5 +1,6 @@
 /** ============================================================================
  * Task Tracker – Core logic (auto-detect header row + checkbox-friendly logic)
+ * With extra diagnostics + tolerant "Recurring?" header handling
  * ========================================================================== */
 
 const CONFIG = {
@@ -23,6 +24,15 @@ function _findColIdx(headers, candidates) {
   for (const c of candidates) {
     const k = _normHeader(c);
     if (k in map) return map[k];
+  }
+  return -1;
+}
+/** Loose finder to tolerate misspellings / trailing spaces (e.g., "Recureing? ") */
+function _findColIdxLoose(headers, stem) {
+  const nh = headers.map(_normHeader);
+  const s = _normHeader(stem);
+  for (let i = 0; i < nh.length; i++) {
+    if (nh[i].startsWith(s) || nh[i].includes(s)) return i;
   }
   return -1;
 }
@@ -225,11 +235,21 @@ function archiveCompletedTasks() {
   // Column indexes from headers (flexible)
   const statusIdx        = col("Status");
   const dueDateIdx       = col("Due Date", "Due");
-  const recurringIdx     = col("Recurring?", "Recurring");
+
+  // Try to find "Recurring?" robustly (tolerate misspell like "Recureing? " + spaces)
+  let recurringIdx       = col("Recurring?", "Recurring");
+  if (recurringIdx === -1) {
+    recurringIdx = _findColIdxLoose(headers, "recur"); // accept any header containing "recur"
+  }
+
   const repeatEveryIdx   = col("Repeat Every", "Repeat (days)", "Repeat Days", "Frequency (days)");
   const taskIdIdx        = col("Task ID", "TaskID");
   const lastModifiedIdx  = col("Last Modified", "Updated", "Modified");
   const emailNotifiedIdx = col("Email Notified", "Notified");
+
+  // Diagnostics (log AFTER indexes exist)
+  Logger.log("Detected headers: " + JSON.stringify(headers));
+  Logger.log("Recurring? column index: " + recurringIdx);
 
   if (statusIdx === -1) {
     Logger.log('Missing "Status" column; aborting.');
@@ -256,7 +276,10 @@ function archiveCompletedTasks() {
     archiveCopy[dateArchivedIdx] = new Date();
     archive.appendRow(archiveCopy);
 
-    // Recurrence
+    // Recurrence (with raw value log when we have a column)
+    if (recurringIdx !== -1) {
+      Logger.log(`Row ${sheetRow}: recurring cell raw value = ${row[recurringIdx]}`);
+    }
     const isRecurring = recurringIdx !== -1 && _isYes(row[recurringIdx]);
     const repeatDays  = repeatEveryIdx !== -1 ? _toNumberOrZero(row[repeatEveryIdx]) : 0;
     const dueDate     = dueDateIdx !== -1 ? _toDateOrNull(row[dueDateIdx]) : null;
@@ -359,3 +382,4 @@ function onEdit(e) {
     sheet.getRange(row, emailNotifiedIdx + 1).clearContent();
   }
 }
+

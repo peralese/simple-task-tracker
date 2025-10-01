@@ -5,15 +5,13 @@ Submit tasks from your phone, see them in Sheets, get email reminders, and autom
 
 ---
 
-## What’s new (2025‑09‑29)
+## What’s new (2025-09-30)
 
-- **Recurring tasks are hardened**: works with checkbox values (`TRUE/FALSE`) or text (`Yes/True/Y/1/✓`).  
-- **Header row auto‑detect**: the script locates the real header row (not assumed to be row 1).  
-- **Flexible headers**: tolerates variants like `Send Reminder?` vs `Reminder`, `Task Name` vs `Task`.  
-- **Archive + Recreate flow** refined: appends the next occurrence before deleting the completed row; archives to an **Archive** sheet with **Date Archived**.  
-- **Daily trigger installer**: one function creates time‑based triggers for archive/summary/reminders (idempotent).  
-- **Weekend skip**: daily summary skips Sat/Sun by default.
-- **Explicit sheet targeting**: set `CONFIG.SHEET_NAME` to your data tab (e.g., `Form_Responses`). Fallback auto‑detect is included.
+- **Recurring column detection hardened**: added a **loose header finder** to tolerate misspellings and trailing spaces (e.g., `Recureing? ` still works).  
+- **Diagnostics**:  
+  - Logs now include the detected headers and the resolved index for `Recurring?`.  
+  - Each completed row logs the **raw cell value** for `Recurring?`, making it easier to debug why a task may or may not recur.  
+- **Behavior unchanged**: tasks marked `Complete` still move to **Archive** and, if recurring, are re-created with the new Due Date.
 
 ---
 
@@ -22,9 +20,10 @@ Submit tasks from your phone, see them in Sheets, get email reminders, and autom
 - Add tasks with: Task Name, Notes, **Due Date**, **Status** (Open/In Progress/Complete), **Priority**, **Send Reminder?**.
 - **Email reminders** for tasks due **today** (stamps `Email Notified` to avoid duplicate sends).  
 - **Daily summary** email of **open** tasks (skips weekends).  
-- **Auto‑archive** completed tasks to `Archive` and stamp `Date Archived`.  
+- **Auto-archive** completed tasks to `Archive` and stamp `Date Archived`.  
 - **Recurring tasks**: when a completed task is marked recurring, a fresh “Open” row is created with Due Date pushed forward by `Repeat Every` days and a new Task ID.  
-- **On‑edit hygiene**: `Last Modified` is updated on any edit; changing `Due Date` clears `Email Notified` so the reminder can resend on the new date.
+- **On-edit hygiene**: `Last Modified` is updated on any edit; changing `Due Date` clears `Email Notified` so the reminder can resend on the new date.
+- **Flexible headers**: tolerant of variants (`Send Reminder?` vs `Reminder`, `Task Name` vs `Task`, and now even `Recureing?` with typos).  
 - **Local editing via `clasp`** (optional) with `.claspignore` / `.gitignore` recipes included.
 
 ---
@@ -42,13 +41,13 @@ The code is flexible, but expect a table with headers similar to the following (
 | `Status`          | `Open`, `In Progress`, or `Complete`                                  |
 | `Send Reminder?`  | Checkbox/text; “Yes” values trigger reminders                         |
 | `Priority`        | `High` / `Medium` / `Low`                                             |
-| `Recurring?`      | **Checkbox** `TRUE/FALSE` or text “Yes/True/Y/1/✓”                    |
+| `Recurring?`      | **Checkbox** `TRUE/FALSE` or text “Yes/True/Y/1/✓`; typos tolerated   |
 | `Repeat Every`    | **Number of days** (e.g., 7)                                          |
-| `Task ID`         | Auto‑generated if blank                                               |
+| `Task ID`         | Auto-generated if blank                                               |
 | `Email Notified`  | Timestamp set when reminder email is sent                             |
-| `Last Modified`   | Auto‑stamped on edits                                                 |
+| `Last Modified`   | Auto-stamped on edits                                                 |
 
-> The `Archive` sheet is auto‑created and gets a `Date Archived` column added automatically.
+> The `Archive` sheet is auto-created and gets a `Date Archived` column added automatically.
 
 ---
 
@@ -64,25 +63,25 @@ const CONFIG = {
 };
 ```
 
-- If `SHEET_NAME` isn’t found, the script tries to **auto‑detect** the data sheet by scanning for common headers.  
+- If `SHEET_NAME` isn’t found, the script tries to **auto-detect** the data sheet by scanning for common headers.  
 - Time zone is taken from the spreadsheet (File → Settings).
 
 ---
 
-## Install the daily triggers (Option A)
+## Install the daily triggers (Option A)
 
 Run this **once** from the Apps Script editor:
 
 1. Open **`trigger.gs`**.
 2. Run **`ensureDailyTriggers`** and approve scopes.
-3. Verify under **Triggers (⏰ icon)** you now have three time‑driven entries:
+3. Verify under **Triggers (⏰ icon)** you now have three time-driven entries:
    - `archiveCompletedTasks` (daily)
    - `sendTaskSummary` (daily; **weekend skip** inside the function)
    - `sendTaskReminders` (daily)
 
 Helpful utilities (optional):
 - `listTriggers()` → prints triggers to Logs
-- `clearTimeBasedTriggers()` → removes time‑based triggers so you can reinstall
+- `clearTimeBasedTriggers()` → removes time-based triggers so you can reinstall
 
 ---
 
@@ -92,7 +91,7 @@ When `archiveCompletedTasks` runs (by trigger or manual test):
 
 1. Rows with `Status = Complete` are copied to **Archive** and stamped with **Date Archived**.
 2. If the row is **recurring** and valid:
-   - `Recurring?` is truthy (checkbox `TRUE` or a “yes‑ish” value);
+   - `Recurring?` is truthy (checkbox `TRUE` or a “yes-ish” value, tolerant of typos);
    - `Repeat Every` is a finite **number > 0** (days);
    - `Due Date` is a valid **Date**;
    then the script **appends a new row** with:
@@ -104,9 +103,9 @@ When `archiveCompletedTasks` runs (by trigger or manual test):
 
 **Why a task may _not_ be recreated**:
 - `Recurring?` is unchecked/empty or evaluates to false.  
-- `Repeat Every` is text or non‑numeric (e.g., “N/A”).  
+- `Repeat Every` is text or non-numeric (e.g., “N/A”).  
 - `Due Date` cell contains text instead of a Date value.  
-- The column headers weren’t detected (uncommon) — see Troubleshooting.
+- The column headers weren’t detected (uncommon) — now logged to help debugging.
 
 ---
 
@@ -116,7 +115,7 @@ You can test without waiting for the morning trigger:
 
 1. Create a test row with:
    - `Status = Complete`
-   - `Recurring? = TRUE` (checkbox) or `Yes`
+   - `Recurring? = TRUE` (checkbox) or `Yes` (even if spelled incorrectly, still works)
    - `Repeat Every = 7`
    - `Due Date =` today (or any valid date)
 2. In Apps Script, **Run → `archiveCompletedTasks`**.
@@ -135,24 +134,25 @@ To test daily summary (skips weekends by default):
 
 ## Troubleshooting
 
-- **“Row N: COMPLETE. recurring=false …” in Logs**  
-  The `Recurring?` cell evaluated to false. For checkboxes it must be **checked** (TRUE). For text, accepted values include “Yes/True/Y/1/✓”.
+- **“Row N: recurring=false …” in Logs**  
+  Now you also see `recurring cell raw value = ...` which shows exactly what was in the sheet.  
+  If you see `"Recureing? "` in headers, the loose finder will still detect it.  
 
 - **“Repeat Every invalid/zero”**  
   Make sure the cell is a **number** (e.g., `7`) — not `N/A` or text.
 
 - **“Due Date missing/invalid”**  
-  Re‑enter the Due Date as a date (left‑aligned text is a red flag).
+  Re-enter the Due Date as a date (left-aligned text is a red flag).
 
 - **“Missing ‘Status’ column; aborting.”**  
-  The script couldn’t find headers near the top. We now **auto‑detect** the header row by scanning the first 10 rows.  
+  The script couldn’t find headers near the top. We now **auto-detect** the header row by scanning the first 10 rows.  
   If your header is deeper, open `Code.js` and increase the scan window in `_locateHeaderRow` (e.g., to 25).
 
 - **No emails**  
   Confirm `RECIPIENT_EMAIL` and check **Apps Script → Executions** for errors. Summary intentionally skips weekends.
 
 - **Wrong sheet**  
-  Ensure `CONFIG.SHEET_NAME` matches your tab (e.g., `Form_Responses`). You can also rely on the auto‑detect fallback.
+  Ensure `CONFIG.SHEET_NAME` matches your tab (e.g., `Form_Responses`). You can also rely on the auto-detect fallback.
 
 ---
 
@@ -200,12 +200,13 @@ appsscript.json.backup
 ## Roadmap
 
 - [x] Email reminders + daily summary (skip weekends)
-- [x] Auto‑archive and recurring task recreation
+- [x] Auto-archive and recurring task recreation
 - [x] Trigger installer & helpers
-- [x] Flexible headers + checkbox‑friendly recurrence
-- [x] Header row auto‑detection
+- [x] Flexible headers + checkbox-friendly recurrence
+- [x] Header row auto-detection
+- [x] Loose matching + diagnostics for recurring column
 - [ ] Dashboard tab (filters & charts)
-- [ ] Calendar‑style view
+- [ ] Calendar-style view
 - [ ] Mobile quick actions / shortcuts
 
 ---
