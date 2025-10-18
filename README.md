@@ -5,7 +5,13 @@ Submit tasks from your phone, see them in Sheets, get email reminders, and autom
 
 ---
 
-## What’s new (2025-09-30)
+## What's new
+
+### 2025-10-18
+
+- **Daily summary includes Priority**: the email now shows a `Priority` column and sorts open tasks by **Priority (High → Medium → Low)**, then by **Due Date**.
+
+### 2025-09-30
 
 - **Recurring column detection hardened**: added a **loose header finder** to tolerate misspellings and trailing spaces (e.g., `Recureing? ` still works).  
 - **Diagnostics**:  
@@ -19,7 +25,7 @@ Submit tasks from your phone, see them in Sheets, get email reminders, and autom
 
 - Add tasks with: Task Name, Notes, **Due Date**, **Status** (Open/In Progress/Complete), **Priority**, **Send Reminder?**.
 - **Email reminders** for tasks due **today** (stamps `Email Notified` to avoid duplicate sends).  
-- **Daily summary** email of **open** tasks (skips weekends).  
+- **Daily summary** email of **open** tasks (skips weekends), with a `Priority` column and sorting by Priority → Due Date.  
 - **Auto-archive** completed tasks to `Archive` and stamp `Date Archived`.  
 - **Recurring tasks**: when a completed task is marked recurring, a fresh “Open” row is created with Due Date pushed forward by `Repeat Every` days and a new Task ID.  
 - **On-edit hygiene**: `Last Modified` is updated on any edit; changing `Due Date` clears `Email Notified` so the reminder can resend on the new date.
@@ -128,7 +134,7 @@ To test reminders:
 - Run **`sendTaskReminders`**. You should get an email and the row will be stamped in `Email Notified`.
 
 To test daily summary (skips weekends by default):
-- Run **`sendTaskSummary`** on a weekday. It will email a table of open tasks.
+- Run **`sendTaskSummary`** on a weekday. It will email a table of open tasks with a `Priority` column, sorted High → Medium → Low, then by Due Date.
 
 ---
 

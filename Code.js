@@ -112,6 +112,7 @@ function sendTaskReminders() {
   const notesIdx = col("Notes", "Note");
   const dueDateIdx = col("Due Date", "Due");
   const statusIdx = col("Status");
+  const priorityIdx = col("Priority");
   const remindIdx = col("Send Reminder?", "Reminder", "Remind");
   const emailNotifiedIdx = col("Email Notified", "Notified");
 
@@ -191,17 +192,32 @@ function sendTaskSummary() {
         taskName: taskNameIdx !== -1 ? row[taskNameIdx] : "",
         notes: notesIdx !== -1 ? row[notesIdx] : "",
         dueStr,
+        dueDateMs: d ? d.getTime() : Number.POSITIVE_INFINITY,
+        priority: priorityIdx !== -1 ? String(row[priorityIdx] || "").trim() : "",
         status,
       });
     }
   }
   if (openTasks.length === 0) return;
 
+  const prRank = (p) => {
+    const s = String(p || "").toLowerCase();
+    if (s === "high") return 0;
+    if (s === "medium") return 1;
+    if (s === "low") return 2;
+    return 3;
+  };
+  openTasks.sort((a, b) => {
+    const byP = prRank(a.priority) - prRank(b.priority);
+    if (byP !== 0) return byP;
+    return a.dueDateMs - b.dueDateMs;
+  });
+
   let body =
     `<h3>🗂️ Daily Task Summary – Open Tasks</h3>` +
-    `<table border="1" cellpadding="4" cellspacing="0"><tr><th>Task</th><th>Notes</th><th>Due Date</th><th>Status</th></tr>`;
+    `<table border="1" cellpadding="4" cellspacing="0"><tr><th>Priority</th><th>Task</th><th>Notes</th><th>Due Date</th><th>Status</th></tr>`;
   openTasks.forEach((t) => {
-    body += `<tr><td>${t.taskName || ""}</td><td>${t.notes || ""}</td><td>${t.dueStr}</td><td>${t.status}</td></tr>`;
+    body += `<tr><td>${t.priority || ""}</td><td>${t.taskName || ""}</td><td>${t.notes || ""}</td><td>${t.dueStr}</td><td>${t.status}</td></tr>`;
   });
   body += `</table>`;
 
@@ -382,4 +398,3 @@ function onEdit(e) {
     sheet.getRange(row, emailNotifiedIdx + 1).clearContent();
   }
 }
-
