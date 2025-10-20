@@ -10,6 +10,7 @@ Submit tasks from your phone, see them in Sheets, get email reminders, and autom
 ### 2025-10-18
 
 - **Daily summary includes Priority**: the email now shows a `Priority` column and sorts open tasks by **Priority (High → Medium → Low)**, then by **Due Date**.
+- **New statuses supported**: `Cancelled`/`Canceled` and `Postponed` are now recognized. They are auto-archived with `Date Archived`, excluded from reminders and the daily summary, and do not trigger recurrence.
 
 ### 2025-09-30
 
@@ -26,6 +27,7 @@ Submit tasks from your phone, see them in Sheets, get email reminders, and autom
 - Add tasks with: Task Name, Notes, **Due Date**, **Status** (Open/In Progress/Complete), **Priority**, **Send Reminder?**.
 - **Email reminders** for tasks due **today** (stamps `Email Notified` to avoid duplicate sends).  
 - **Daily summary** email of **open** tasks (skips weekends), with a `Priority` column and sorting by Priority → Due Date.  
+- Recognizes statuses: `Open`, `In Progress`, `Complete`, `Cancelled`/`Canceled`, `Postponed`. Cancelled/Postponed are auto-archived and excluded from emails.  
 - **Auto-archive** completed tasks to `Archive` and stamp `Date Archived`.  
 - **Recurring tasks**: when a completed task is marked recurring, a fresh “Open” row is created with Due Date pushed forward by `Repeat Every` days and a new Task ID.  
 - **On-edit hygiene**: `Last Modified` is updated on any edit; changing `Due Date` clears `Email Notified` so the reminder can resend on the new date.
@@ -44,7 +46,7 @@ The code is flexible, but expect a table with headers similar to the following (
 | `Task Name`       | Short title (`Task` also accepted)                                    |
 | `Notes`           | Optional details                                                      |
 | `Due Date`        | A real date value (not text)                                          |
-| `Status`          | `Open`, `In Progress`, or `Complete`                                  |
+| `Status`          | `Open`, `In Progress`, `Complete`, `Cancelled`/`Canceled`, `Postponed` |
 | `Send Reminder?`  | Checkbox/text; “Yes” values trigger reminders                         |
 | `Priority`        | `High` / `Medium` / `Low`                                             |
 | `Recurring?`      | **Checkbox** `TRUE/FALSE` or text “Yes/True/Y/1/✓`; typos tolerated   |
@@ -95,8 +97,8 @@ Helpful utilities (optional):
 
 When `archiveCompletedTasks` runs (by trigger or manual test):
 
-1. Rows with `Status = Complete` are copied to **Archive** and stamped with **Date Archived**.
-2. If the row is **recurring** and valid:
+1. Rows with `Status = Complete`, `Cancelled`/`Canceled`, or `Postponed` are copied to **Archive** and stamped with **Date Archived**.
+2. If the row is **recurring** and valid, and the status is `Complete`:
    - `Recurring?` is truthy (checkbox `TRUE` or a “yes-ish” value, tolerant of typos);
    - `Repeat Every` is a finite **number > 0** (days);
    - `Due Date` is a valid **Date**;
@@ -105,7 +107,7 @@ When `archiveCompletedTasks` runs (by trigger or manual test):
    - `Due Date = old Due Date + Repeat Every`
    - new `Task ID`
    - `Email Notified` cleared, `Last Modified` updated
-3. The original completed row is deleted from the main sheet (it remains in `Archive`).
+3. The original row is deleted from the main sheet (it remains in `Archive`). Rows that are `Cancelled`/`Canceled` or `Postponed` are archived only (no recurrence).
 
 **Why a task may _not_ be recreated**:
 - `Recurring?` is unchecked/empty or evaluates to false.  
@@ -135,6 +137,10 @@ To test reminders:
 
 To test daily summary (skips weekends by default):
 - Run **`sendTaskSummary`** on a weekday. It will email a table of open tasks with a `Priority` column, sorted High → Medium → Low, then by Due Date.
+
+To test Cancelled/Postponed flow:
+- Set a row to `Status = Cancelled` (or `Postponed`).
+- Run **`archiveCompletedTasks`**. The row should move to `Archive` with `Date Archived` set and should not be re-created, even if marked `Recurring? = TRUE`.
 
 ---
 

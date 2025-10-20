@@ -124,7 +124,8 @@ function sendTaskReminders() {
 
     if (!_isYes(row[remindIdx])) continue;
     if (emailNotifiedIdx !== -1 && row[emailNotifiedIdx]) continue;
-    if (String(row[statusIdx] || "").toLowerCase() === "complete") continue;
+    const statusLower = String(row[statusIdx] || "").trim().toLowerCase();
+    if (["complete", "cancelled", "canceled", "postponed"].includes(statusLower)) continue;
 
     const d = _toDateOrNull(row[dueDateIdx]);
     if (!d) continue;
@@ -185,7 +186,8 @@ function sendTaskSummary() {
 
   for (const row of data) {
     const status = String(row[statusIdx] || "");
-    if (status && status.toLowerCase() !== "complete") {
+    const statusLower = status.trim().toLowerCase();
+    if (status && !["complete", "cancelled", "canceled", "postponed"].includes(statusLower)) {
       const d = _toDateOrNull(row[dueDateIdx]);
       const dueStr = d ? Utilities.formatDate(d, tz, "yyyy-MM-dd") : String(row[dueDateIdx] || "");
       openTasks.push({
@@ -284,7 +286,9 @@ function archiveCompletedTasks() {
     const row = values[i];
     const sheetRow = dataStart + i;
 
-    if (String(row[statusIdx] || "").trim().toLowerCase() !== "complete") continue;
+    const statusLower = String(row[statusIdx] || "").trim().toLowerCase();
+    const shouldArchive = ["complete", "cancelled", "canceled", "postponed"].includes(statusLower);
+    if (!shouldArchive) continue;
 
     // Archive copy with Date Archived
     const archiveCopy = row.slice();
@@ -300,9 +304,9 @@ function archiveCompletedTasks() {
     const repeatDays  = repeatEveryIdx !== -1 ? _toNumberOrZero(row[repeatEveryIdx]) : 0;
     const dueDate     = dueDateIdx !== -1 ? _toDateOrNull(row[dueDateIdx]) : null;
 
-    Logger.log(`Row ${sheetRow}: COMPLETE. recurring=${isRecurring} repeatDays=${repeatDays} dueDate=${dueDate}`);
+    Logger.log(`Row ${sheetRow}: status=${statusLower}. recurring=${isRecurring} repeatDays=${repeatDays} dueDate=${dueDate}`);
 
-    if (isRecurring && repeatDays > 0 && dueDate) {
+    if (statusLower === "complete" && isRecurring && repeatDays > 0 && dueDate) {
       const newRow = row.slice();
 
       newRow[statusIdx] = "Open";
@@ -316,7 +320,8 @@ function archiveCompletedTasks() {
       main.appendRow(newRow);
       Logger.log(`Row ${sheetRow}: Recurring task re-created for ${nextDue.toDateString()}.`);
     } else {
-      if (!isRecurring) Logger.log(`Row ${sheetRow}: Not recurring; archived only.`);
+      if (statusLower !== "complete") Logger.log(`Row ${sheetRow}: Non-complete status archived (no recurrence).`);
+      else if (!isRecurring) Logger.log(`Row ${sheetRow}: Not recurring; archived only.`);
       else if (!(repeatDays > 0)) Logger.log(`Row ${sheetRow}: Repeat Every invalid/zero; skipped re-create.`);
       else if (!dueDate) Logger.log(`Row ${sheetRow}: Due Date missing/invalid; skipped re-create.`);
     }
