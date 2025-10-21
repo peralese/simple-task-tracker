@@ -113,6 +113,7 @@ function sendTaskReminders() {
   const dueDateIdx = col("Due Date", "Due");
   const statusIdx = col("Status");
   const priorityIdx = col("Priority");
+  const priorityIdx = col("Priority");
   const remindIdx = col("Send Reminder?", "Reminder", "Remind");
   const emailNotifiedIdx = col("Email Notified", "Notified");
 
