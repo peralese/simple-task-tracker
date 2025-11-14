@@ -103,7 +103,7 @@ function sendTaskReminders() {
 
   const dataStart = headerRow + 1;
   const lastRow = sheet.getLastRow();
-  if (lastRow < dataStart) return;
+  if (lastRow < dataStart) return 0;
 
   const range = sheet.getRange(dataStart, 1, lastRow - headerRow, sheet.getLastColumn());
   const data = range.getValues();
@@ -144,7 +144,7 @@ function sendTaskReminders() {
     }
   }
 
-  if (tasksDueToday.length === 0) return;
+  if (tasksDueToday.length === 0) return 0;
 
   let body = `<h3>📋 Task Reminders Due Today</h3><ul>`;
   tasksDueToday.forEach((t) => {
@@ -159,19 +159,23 @@ function sendTaskReminders() {
   if (emailNotifiedIdx !== -1) {
     tasksDueToday.forEach((t) => sheet.getRange(t.sheetRow, emailNotifiedIdx + 1).setValue(new Date()));
   }
+
+  return tasksDueToday.length;
 }
 
-function sendTaskSummary() {
+function sendTaskSummary(options) {
+  const opts = options || {};
+  const forceWeekend = Boolean(opts.forceWeekend);
   const sheet = getDataSheet();
   const { headerRow, col } = _getTableContext(sheet);
 
   // Weekend skip
   const day = new Date().getDay(); // 0=Sun,6=Sat
-  if (day === 0 || day === 6) return;
+  if (!forceWeekend && (day === 0 || day === 6)) return 0;
 
   const dataStart = headerRow + 1;
   const lastRow = sheet.getLastRow();
-  if (lastRow < dataStart) return;
+  if (lastRow < dataStart) return 0;
 
   const range = sheet.getRange(dataStart, 1, lastRow - headerRow, sheet.getLastColumn());
   const data = range.getValues();
@@ -201,7 +205,7 @@ function sendTaskSummary() {
       });
     }
   }
-  if (openTasks.length === 0) return;
+  if (openTasks.length === 0) return 0;
 
   const prRank = (p) => {
     const s = String(p || "").toLowerCase();
@@ -225,6 +229,17 @@ function sendTaskSummary() {
   body += `</table>`;
 
   GmailApp.sendEmail(CONFIG.RECIPIENT_EMAIL, "🗓️ Daily Task Summary", "", { htmlBody: body });
+  return openTasks.length;
+}
+
+function sendEmailNow() {
+  const count = sendTaskSummary({ forceWeekend: true });
+  const ui = SpreadsheetApp.getUi();
+  if (count > 0) {
+    ui.alert(`Sent summary email listing ${count} open task${count === 1 ? "" : "s"}.`);
+  } else {
+    ui.alert("No summary email sent because there are no open tasks to include.");
+  }
 }
 
 /** ---------- Archive + Recurrence ---------- **/

@@ -47,6 +47,7 @@ function clearTimeBasedTriggers() {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("Task App")
+    .addItem("Send email now", "sendEmailNow")
     .addItem("Install daily triggers", "ensureDailyTriggers")
     .addItem("List triggers (Logs)", "listTriggers")
     .addItem("Clear time-based triggers", "clearTimeBasedTriggers")

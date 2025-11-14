@@ -27,6 +27,7 @@ Submit tasks from your phone, see them in Sheets, get email reminders, and autom
 - Add tasks with: Task Name, Notes, **Due Date**, **Status** (Open/In Progress/Complete), **Priority**, **Send Reminder?**.
 - **Email reminders** for tasks due **today** (stamps `Email Notified` to avoid duplicate sends).  
 - **Daily summary** email of **open** tasks (skips weekends), with a `Priority` column and sorting by Priority → Due Date.  
+- **Manual send menu** so you can send the summary email immediately from Extensions → Task App → Send email now.  
 - Recognizes statuses: `Open`, `In Progress`, `Complete`, `Cancelled`/`Canceled`, `Postponed`. Cancelled/Postponed are auto-archived and excluded from emails.  
 - **Auto-archive** completed tasks to `Archive` and stamp `Date Archived`.  
 - **Recurring tasks**: when a completed task is marked recurring, a fresh “Open” row is created with Due Date pushed forward by `Repeat Every` days and a new Task ID.  
@@ -90,6 +91,7 @@ Run this **once** from the Apps Script editor:
 Helpful utilities (optional):
 - `listTriggers()` → prints triggers to Logs
 - `clearTimeBasedTriggers()` → removes time-based triggers so you can reinstall
+Need an email right away? Use **Extensions → Task App → Send email now** in the Sheet to mail yourself the latest open-task summary immediately.
 
 ---
 
