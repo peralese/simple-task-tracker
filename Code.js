@@ -9,6 +9,12 @@ const CONFIG = {
   RECIPIENT_EMAIL: "erickles@us.ibm.com", // change if needed
 };
 
+const STATUS_CONFIG = {
+  CLOSED: ["complete", "cancelled", "canceled", "postponed", "delete", "deleted", "test", "test data"],
+  ARCHIVE: ["complete", "cancelled", "canceled", "postponed"],
+  PURGE: ["delete", "deleted", "test", "test data"],
+};
+
 /** ---------- Helpers ---------- **/
 
 function _normHeader(s) {
@@ -125,7 +131,7 @@ function sendTaskReminders() {
     if (!_isYes(row[remindIdx])) continue;
     if (emailNotifiedIdx !== -1 && row[emailNotifiedIdx]) continue;
     const statusLower = String(row[statusIdx] || "").trim().toLowerCase();
-    if (["complete", "cancelled", "canceled", "postponed"].includes(statusLower)) continue;
+    if (STATUS_CONFIG.CLOSED.includes(statusLower)) continue;
 
     const d = _toDateOrNull(row[dueDateIdx]);
     if (!d) continue;
@@ -192,7 +198,7 @@ function sendTaskSummary(options) {
   for (const row of data) {
     const status = String(row[statusIdx] || "");
     const statusLower = status.trim().toLowerCase();
-    if (status && !["complete", "cancelled", "canceled", "postponed"].includes(statusLower)) {
+    if (status && !STATUS_CONFIG.CLOSED.includes(statusLower)) {
       const d = _toDateOrNull(row[dueDateIdx]);
       const dueStr = d ? Utilities.formatDate(d, tz, "yyyy-MM-dd") : String(row[dueDateIdx] || "");
       openTasks.push({
@@ -296,6 +302,8 @@ function archiveCompletedTasks() {
 
   const values = main.getRange(dataStart, 1, lastRow - headerRow, main.getLastColumn()).getValues();
   const rowsToDelete = [];
+  let archiveCount = 0;
+  let purgeCount = 0;
 
   // Process bottom-up to avoid index shifts
   for (let i = values.length - 1; i >= 0; i--) {
@@ -303,43 +311,48 @@ function archiveCompletedTasks() {
     const sheetRow = dataStart + i;
 
     const statusLower = String(row[statusIdx] || "").trim().toLowerCase();
-    const shouldArchive = ["complete", "cancelled", "canceled", "postponed"].includes(statusLower);
-    if (!shouldArchive) continue;
+    const shouldArchive = STATUS_CONFIG.ARCHIVE.includes(statusLower);
+    const shouldPurge = STATUS_CONFIG.PURGE.includes(statusLower);
+    if (!shouldArchive && !shouldPurge) continue;
 
-    // Archive copy with Date Archived
-    const archiveCopy = row.slice();
-    while (archiveCopy.length <= dateArchivedIdx) archiveCopy.push("");
-    archiveCopy[dateArchivedIdx] = new Date();
-    archive.appendRow(archiveCopy);
+    if (shouldArchive) {
+      const archiveCopy = row.slice();
+      while (archiveCopy.length <= dateArchivedIdx) archiveCopy.push("");
+      archiveCopy[dateArchivedIdx] = new Date();
+      archive.appendRow(archiveCopy);
+      archiveCount++;
 
-    // Recurrence (with raw value log when we have a column)
-    if (recurringIdx !== -1) {
-      Logger.log(`Row ${sheetRow}: recurring cell raw value = ${row[recurringIdx]}`);
-    }
-    const isRecurring = recurringIdx !== -1 && _isYes(row[recurringIdx]);
-    const repeatDays  = repeatEveryIdx !== -1 ? _toNumberOrZero(row[repeatEveryIdx]) : 0;
-    const dueDate     = dueDateIdx !== -1 ? _toDateOrNull(row[dueDateIdx]) : null;
+      if (recurringIdx !== -1) {
+        Logger.log(`Row ${sheetRow}: recurring cell raw value = ${row[recurringIdx]}`);
+      }
+      const isRecurring = recurringIdx !== -1 && _isYes(row[recurringIdx]);
+      const repeatDays  = repeatEveryIdx !== -1 ? _toNumberOrZero(row[repeatEveryIdx]) : 0;
+      const dueDate     = dueDateIdx !== -1 ? _toDateOrNull(row[dueDateIdx]) : null;
 
-    Logger.log(`Row ${sheetRow}: status=${statusLower}. recurring=${isRecurring} repeatDays=${repeatDays} dueDate=${dueDate}`);
+      Logger.log(`Row ${sheetRow}: status=${statusLower}. recurring=${isRecurring} repeatDays=${repeatDays} dueDate=${dueDate}`);
 
-    if (statusLower === "complete" && isRecurring && repeatDays > 0 && dueDate) {
-      const newRow = row.slice();
+      if (statusLower === "complete" && isRecurring && repeatDays > 0 && dueDate) {
+        const newRow = row.slice();
 
-      newRow[statusIdx] = "Open";
-      const nextDue = new Date(dueDate); nextDue.setDate(nextDue.getDate() + repeatDays);
-      if (dueDateIdx !== -1) newRow[dueDateIdx] = nextDue;
+        newRow[statusIdx] = "Open";
+        const nextDue = new Date(dueDate); nextDue.setDate(nextDue.getDate() + repeatDays);
+        if (dueDateIdx !== -1) newRow[dueDateIdx] = nextDue;
 
-      if (taskIdIdx !== -1) newRow[taskIdIdx] = Utilities.getUuid();
-      if (emailNotifiedIdx !== -1) newRow[emailNotifiedIdx] = "";
-      if (lastModifiedIdx !== -1) newRow[lastModifiedIdx] = new Date();
+        if (taskIdIdx !== -1) newRow[taskIdIdx] = Utilities.getUuid();
+        if (emailNotifiedIdx !== -1) newRow[emailNotifiedIdx] = "";
+        if (lastModifiedIdx !== -1) newRow[lastModifiedIdx] = new Date();
 
-      main.appendRow(newRow);
-      Logger.log(`Row ${sheetRow}: Recurring task re-created for ${nextDue.toDateString()}.`);
-    } else {
-      if (statusLower !== "complete") Logger.log(`Row ${sheetRow}: Non-complete status archived (no recurrence).`);
-      else if (!isRecurring) Logger.log(`Row ${sheetRow}: Not recurring; archived only.`);
-      else if (!(repeatDays > 0)) Logger.log(`Row ${sheetRow}: Repeat Every invalid/zero; skipped re-create.`);
-      else if (!dueDate) Logger.log(`Row ${sheetRow}: Due Date missing/invalid; skipped re-create.`);
+        main.appendRow(newRow);
+        Logger.log(`Row ${sheetRow}: Recurring task re-created for ${nextDue.toDateString()}.`);
+      } else {
+        if (statusLower !== "complete") Logger.log(`Row ${sheetRow}: Non-complete status archived (no recurrence).`);
+        else if (!isRecurring) Logger.log(`Row ${sheetRow}: Not recurring; archived only.`);
+        else if (!(repeatDays > 0)) Logger.log(`Row ${sheetRow}: Repeat Every invalid/zero; skipped re-create.`);
+        else if (!dueDate) Logger.log(`Row ${sheetRow}: Due Date missing/invalid; skipped re-create.`);
+      }
+    } else if (shouldPurge) {
+      purgeCount++;
+      Logger.log(`Row ${sheetRow}: status=${statusLower}. Purged without archiving (test/delete data).`);
     }
 
     rowsToDelete.push(sheetRow);
@@ -348,7 +361,7 @@ function archiveCompletedTasks() {
   // Delete originals, bottom-first
   rowsToDelete.sort((a, b) => b - a).forEach((r) => main.deleteRow(r));
 
-  Logger.log(`Archived ${rowsToDelete.length} completed row(s).`);
+  Logger.log(`Removed ${rowsToDelete.length} row(s): ${archiveCount} archived, ${purgeCount} purged.`);
 }
 
 /** ---------- Form + Edit hooks ---------- **/
