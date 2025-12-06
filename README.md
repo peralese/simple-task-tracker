@@ -7,6 +7,10 @@ Submit tasks from your phone, see them in Sheets, get email reminders, and autom
 
 ## What's new
 
+### 2025-11-05
+
+- **On Hold status**: added `On Hold` / `On-Hold` as a recognized status. Tasks stay on the main sheet but are treated as paused, so they are excluded from reminders and the daily summary until you move them back to an active status.
+
 ### 2025-10-18
 
 - **Daily summary includes Priority**: the email now shows a `Priority` column and sorts open tasks by **Priority (High → Medium → Low)**, then by **Due Date**.
@@ -24,11 +28,11 @@ Submit tasks from your phone, see them in Sheets, get email reminders, and autom
 
 ## Features
 
-- Add tasks with: Task Name, Notes, **Due Date**, **Status** (Open/In Progress/Complete), **Priority**, **Send Reminder?**.
+- Add tasks with: Task Name, Notes, **Due Date**, **Status** (Open/In Progress/On Hold/Complete), **Priority**, **Send Reminder?**.
 - **Email reminders** for tasks due **today** (stamps `Email Notified` to avoid duplicate sends).  
 - **Daily summary** email of **open** tasks (skips weekends), with a `Priority` column and sorting by Priority → Due Date.  
 - **Manual send menu** so you can send the summary email immediately from Extensions → Task App → Send email now.  
-- Recognizes statuses: `Open`, `In Progress`, `Complete`, `Cancelled`/`Canceled`, `Postponed`, and `Delete/Test Data` for disposable entries. Cancelled/Postponed are auto-archived and excluded from emails; Delete/Test rows are removed without archiving.  
+- Recognizes statuses: `Open`, `In Progress`, `On Hold`, `Complete`, `Cancelled`/`Canceled`, `Postponed`, and `Delete/Test Data` for disposable entries. `On Hold` stays on the main sheet but is excluded from summaries/reminders, Cancelled/Postponed are auto-archived, and Delete/Test rows are removed without archiving.  
 - **Auto-archive** completed tasks to `Archive` and stamp `Date Archived`.  
 - **Recurring tasks**: when a completed task is marked recurring, a fresh “Open” row is created with Due Date pushed forward by `Repeat Every` days and a new Task ID.  
 - **On-edit hygiene**: `Last Modified` is updated on any edit; changing `Due Date` clears `Email Notified` so the reminder can resend on the new date.
@@ -47,7 +51,7 @@ The code is flexible, but expect a table with headers similar to the following (
 | `Task Name`       | Short title (`Task` also accepted)                                    |
 | `Notes`           | Optional details                                                      |
 | `Due Date`        | A real date value (not text)                                          |
-| `Status`          | `Open`, `In Progress`, `Complete`, `Cancelled`/`Canceled`, `Postponed`, `Delete`/`Test Data` |
+| `Status`          | `Open`, `In Progress`, `On Hold`, `Complete`, `Cancelled`/`Canceled`, `Postponed`, `Delete`/`Test Data` (`On Hold` pauses emails but keeps the row on the main sheet) |
 | `Send Reminder?`  | Checkbox/text; “Yes” values trigger reminders                         |
 | `Priority`        | `High` / `Medium` / `Low`                                             |
 | `Recurring?`      | **Checkbox** `TRUE/FALSE` or text “Yes/True/Y/1/✓`; typos tolerated   |
@@ -99,7 +103,7 @@ Need an email right away? Use **Extensions → Task App → Send email now** in 
 
 When `archiveCompletedTasks` runs (by trigger or manual test):
 
-1. Rows with `Status = Complete`, `Cancelled`/`Canceled`, or `Postponed` are copied to **Archive** and stamped with **Date Archived**.
+1. Rows with `Status = Complete`, `Cancelled`/`Canceled`, or `Postponed` are copied to **Archive** and stamped with **Date Archived** (`On Hold` rows stay put so you can reactivate them later).
 2. Rows with `Status = Delete` (or `Test Data`) are simply removed from the main sheet without touching the Archive, keeping throwaway rows out of history.
 3. If the row is **recurring** and valid, and the status is `Complete`:
    - `Recurring?` is truthy (checkbox `TRUE` or a “yes-ish” value, tolerant of typos);

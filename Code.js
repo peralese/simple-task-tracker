@@ -10,7 +10,18 @@ const CONFIG = {
 };
 
 const STATUS_CONFIG = {
-  CLOSED: ["complete", "cancelled", "canceled", "postponed", "delete", "deleted", "test", "test data"],
+  CLOSED: [
+    "complete",
+    "cancelled",
+    "canceled",
+    "postponed",
+    "on hold",
+    "on-hold",
+    "delete",
+    "deleted",
+    "test",
+    "test data",
+  ],
   ARCHIVE: ["complete", "cancelled", "canceled", "postponed"],
   PURGE: ["delete", "deleted", "test", "test data"],
 };
