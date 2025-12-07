@@ -372,7 +372,11 @@ function archiveCompletedTasks() {
     recurringIdx = _findColIdxLoose(headers, "recur"); // accept any header containing "recur"
   }
 
-  const repeatEveryIdx   = col("Repeat Every", "Repeat (days)", "Repeat Days", "Frequency (days)");
+  let repeatEveryIdx     = col("Repeat Every", "Repeat (days)", "Repeat Days", "Frequency (days)");
+  if (repeatEveryIdx === -1) {
+    repeatEveryIdx = _findColIdxLoose(headers, "repeat");
+    if (repeatEveryIdx === -1) repeatEveryIdx = _findColIdxLoose(headers, "freq");
+  }
   const taskIdIdx        = col("Task ID", "TaskID");
   const lastModifiedIdx  = col("Last Modified", "Updated", "Modified");
   const emailNotifiedIdx = col("Email Notified", "Notified");

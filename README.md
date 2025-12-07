@@ -10,6 +10,7 @@ Submit tasks from your phone, see them in Sheets, get email reminders, and autom
 ### 2025-12-06
 
 - **On Hold rows get their own color**: switching a late task to `On Hold` now switches the row to a soft amber highlight so it no longer looks overdue. The Apps Script enforces the new conditional formatting, so paused tasks are excluded from the red “late” styling automatically.
+- **Recurring frequency detection is now loose**: the script finds the `Repeat Every`/`Frequency` column even if the header is renamed (e.g., `Frequency`, `How often`, `Repeat?`). Recurring tasks that were previously dropping off because the header name didn’t match the strict list now reschedule correctly.
 
 ### 2025-11-05
 
