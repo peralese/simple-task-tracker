@@ -26,6 +26,8 @@ const STATUS_CONFIG = {
   PURGE: ["delete", "deleted", "test", "test data"],
 };
 
+const ON_HOLD_STATUSES = ["on hold", "on-hold"];
+
 /** ---------- Helpers ---------- **/
 
 function _normHeader(s) {
@@ -110,6 +112,83 @@ function _getTableContext(sheet) {
     return _findColIdx(headers, Array.from(arguments));
   };
   return { headerRow, headers, lastCol, col };
+}
+
+function _columnToLetter(num) {
+  let n = Math.floor(num);
+  if (!(n > 0)) return "";
+  let out = "";
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    out = String.fromCharCode(65 + rem) + out;
+    n = Math.floor((n - 1) / 26);
+  }
+  return out;
+}
+
+function _buildInlineArray(values) {
+  const normalized = [];
+  values.forEach((val) => {
+    const s = String(val || "").trim().toLowerCase();
+    if (s && !normalized.includes(s)) normalized.push(s);
+  });
+  if (normalized.length === 0) return "{}";
+  return `{${normalized.map((s) => `"${s.replace(/"/g, '""')}"`).join(",")}}`;
+}
+
+function _ensureStatusFormattingRules(sheet, ctx) {
+  const { headerRow, col } = ctx;
+  const statusIdx = col("Status");
+  const dueIdx = col("Due Date", "Due");
+  if (statusIdx === -1 || dueIdx === -1) return;
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= headerRow) return;
+
+  const lastCol = sheet.getLastColumn();
+  const statusLetter = _columnToLetter(statusIdx + 1);
+  const dueLetter = _columnToLetter(dueIdx + 1);
+  if (!statusLetter || !dueLetter) return;
+
+  const firstDataRow = headerRow + 1;
+  const statusRef = `$${statusLetter}${firstDataRow}`;
+  const dueRef = `$${dueLetter}${firstDataRow}`;
+
+  const closedArray = _buildInlineArray(STATUS_CONFIG.CLOSED);
+  const onHoldArray = _buildInlineArray(ON_HOLD_STATUSES);
+  if (closedArray === "{}") return;
+
+  const normalizedStatus = `LOWER(TRIM(${statusRef}))`;
+  const onHoldFormula = `=COUNTIF(${onHoldArray}, ${normalizedStatus})>0`;
+  const overdueFormula =
+    `=AND(LEN(${statusRef})>0, ISDATE(${dueRef}), ${dueRef}<TODAY(), ` +
+    `COUNTIF(${closedArray}, ${normalizedStatus})=0)`;
+
+  const dataRange = sheet.getRange(firstDataRow, 1, lastRow - headerRow, lastCol);
+
+  let rules = sheet.getConditionalFormatRules().filter((rule) => {
+    const cond = rule.getBooleanCondition();
+    if (!cond || cond.getCriteriaType() !== SpreadsheetApp.BooleanCriteria.CUSTOM_FORMULA) return true;
+    const [formula] = cond.getCriteriaValues();
+    return formula !== onHoldFormula && formula !== overdueFormula;
+  });
+
+  rules.push(
+    SpreadsheetApp.newConditionalFormatRule()
+      .setRanges([dataRange])
+      .whenFormulaSatisfied(onHoldFormula)
+      .setBackground("#fce8b2")
+      .build()
+  );
+  rules.push(
+    SpreadsheetApp.newConditionalFormatRule()
+      .setRanges([dataRange])
+      .whenFormulaSatisfied(overdueFormula)
+      .setBackground("#f8d7da")
+      .build()
+  );
+
+  sheet.setConditionalFormatRules(rules);
 }
 
 /** ---------- Emails ---------- **/
@@ -384,7 +463,8 @@ function onFormSubmit(e) {
 
 function reapplyFormattingWithRefresh() {
   const sheet = getDataSheet();
-  const { headerRow } = _getTableContext(sheet);
+  const ctx = _getTableContext(sheet);
+  const { headerRow } = ctx;
 
   const lastRow = sheet.getLastRow();
   const lastCol = sheet.getLastColumn();
@@ -397,6 +477,8 @@ function reapplyFormattingWithRefresh() {
   sheet.setConditionalFormatRules([]);   // clear
   sheet.setConditionalFormatRules(rules); // reapply
   target.setValues(data); // force refresh
+
+  _ensureStatusFormattingRules(sheet, ctx);
 }
 
 function generateMissingTaskIDs() {

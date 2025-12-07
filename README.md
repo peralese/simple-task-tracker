@@ -7,6 +7,10 @@ Submit tasks from your phone, see them in Sheets, get email reminders, and autom
 
 ## What's new
 
+### 2025-12-06
+
+- **On Hold rows get their own color**: switching a late task to `On Hold` now switches the row to a soft amber highlight so it no longer looks overdue. The Apps Script enforces the new conditional formatting, so paused tasks are excluded from the red “late” styling automatically.
+
 ### 2025-11-05
 
 - **On Hold status**: added `On Hold` / `On-Hold` as a recognized status. Tasks stay on the main sheet but are treated as paused, so they are excluded from reminders and the daily summary until you move them back to an active status.
