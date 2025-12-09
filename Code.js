@@ -177,7 +177,7 @@ function _ensureStatusFormattingRules(sheet, ctx) {
     SpreadsheetApp.newConditionalFormatRule()
       .setRanges([dataRange])
       .whenFormulaSatisfied(onHoldFormula)
-      .setBackground("#fce8b2")
+      .setBackground("#ffffff")
       .build()
   );
   rules.push(
