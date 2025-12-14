@@ -161,9 +161,11 @@ function _ensureStatusFormattingRules(sheet, ctx) {
   const normalizedStatus = `LOWER(TRIM(${statusRef}))`;
   const onHoldFormula = `=COUNTIF(${onHoldArray}, ${normalizedStatus})>0`;
   const onHoldExclusion = onHoldArray !== "{}" ? `, COUNTIF(${onHoldArray}, ${normalizedStatus})=0` : "";
-  const overdueFormula =
+  const overdueFormulaCore =
     `=AND(LEN(${statusRef})>0, ISDATE(${dueRef}), ${dueRef}<TODAY(), ` +
-    `COUNTIF(${closedArray}, ${normalizedStatus})=0${onHoldExclusion})`;
+    `COUNTIF(${closedArray}, ${normalizedStatus})=0`;
+  const overdueFormula = `${overdueFormulaCore}${onHoldExclusion})`;
+  const overdueFormulaLegacy = `${overdueFormulaCore})`;
 
   const dataRange = sheet.getRange(firstDataRow, 1, lastRow - headerRow, lastCol);
 
@@ -171,21 +173,21 @@ function _ensureStatusFormattingRules(sheet, ctx) {
     const cond = rule.getBooleanCondition();
     if (!cond || cond.getCriteriaType() !== SpreadsheetApp.BooleanCriteria.CUSTOM_FORMULA) return true;
     const [formula] = cond.getCriteriaValues();
-    return formula !== onHoldFormula && formula !== overdueFormula;
+    return formula !== onHoldFormula && formula !== overdueFormula && formula !== overdueFormulaLegacy;
   });
 
   rules.push(
     SpreadsheetApp.newConditionalFormatRule()
       .setRanges([dataRange])
-      .whenFormulaSatisfied(onHoldFormula)
-      .setBackground("#ffffff")
+      .whenFormulaSatisfied(overdueFormula)
+      .setBackground("#f8d7da")
       .build()
   );
   rules.push(
     SpreadsheetApp.newConditionalFormatRule()
       .setRanges([dataRange])
-      .whenFormulaSatisfied(overdueFormula)
-      .setBackground("#f8d7da")
+      .whenFormulaSatisfied(onHoldFormula)
+      .setBackground("#ffffff")
       .build()
   );
 
