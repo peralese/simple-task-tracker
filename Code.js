@@ -160,9 +160,10 @@ function _ensureStatusFormattingRules(sheet, ctx) {
 
   const normalizedStatus = `LOWER(TRIM(${statusRef}))`;
   const onHoldFormula = `=COUNTIF(${onHoldArray}, ${normalizedStatus})>0`;
+  const onHoldExclusion = onHoldArray !== "{}" ? `, COUNTIF(${onHoldArray}, ${normalizedStatus})=0` : "";
   const overdueFormula =
     `=AND(LEN(${statusRef})>0, ISDATE(${dueRef}), ${dueRef}<TODAY(), ` +
-    `COUNTIF(${closedArray}, ${normalizedStatus})=0)`;
+    `COUNTIF(${closedArray}, ${normalizedStatus})=0${onHoldExclusion})`;
 
   const dataRange = sheet.getRange(firstDataRow, 1, lastRow - headerRow, lastCol);
 
