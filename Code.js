@@ -7,6 +7,7 @@ const CONFIG = {
   SHEET_NAME: "Form_Responses",          // your tab; we also fall back to auto-detect
   ARCHIVE_SHEET_NAME: "Archive",
   RECIPIENT_EMAIL: "erickles@us.ibm.com", // change if needed
+  NOTIFICATION_PAUSE_UNTIL: "2026-01-05",          // e.g., "2025-08-15" to pause summaries until that date (blank to disable)
 };
 
 const STATUS_CONFIG = {
@@ -70,6 +71,19 @@ function _toDateOrNull(val) {
   if (!val) return null;
   const d = new Date(val);
   return Number.isFinite(d.getTime()) ? d : null;
+}
+
+function _isNotificationPauseActive() {
+  const raw = CONFIG.NOTIFICATION_PAUSE_UNTIL;
+  if (raw === true) return true;
+  if (!raw) return false;
+
+  const pauseUntil = _toDateOrNull(raw);
+  if (!pauseUntil) return false;
+
+  // Treat the pause as lasting through the end of the provided day
+  pauseUntil.setHours(23, 59, 59, 999);
+  return new Date() <= pauseUntil;
 }
 
 function getDataSheet() {
@@ -271,6 +285,10 @@ function sendTaskSummary(options) {
   // Weekend skip
   const day = new Date().getDay(); // 0=Sun,6=Sat
   if (!forceWeekend && (day === 0 || day === 6)) return 0;
+  if (_isNotificationPauseActive()) {
+    Logger.log("Notification pause is active; skipping daily summary email.");
+    return 0;
+  }
 
   const dataStart = headerRow + 1;
   const lastRow = sheet.getLastRow();
