@@ -38,6 +38,7 @@ Submit tasks from your phone, see them in Sheets, get email reminders, and autom
 - **Daily summary** email of **open** tasks (skips weekends), with a `Priority` column and sorting by Priority → Due Date.  
 - **Manual send menu** so you can send the summary email immediately from Extensions → Task App → Send email now.  
 - **Vacation pause** option: disable the daily summary until a date you choose, while still letting truly due tasks send their reminders.  
+- **Pause date can be set from the sheet**: use a named range or a Settings cell to avoid editing `Code.js`.  
 - Recognizes statuses: `Open`, `In Progress`, `On Hold`, `Complete`, `Cancelled`/`Canceled`, `Postponed`, and `Delete/Test Data` for disposable entries. `On Hold` stays on the main sheet but is excluded from summaries/reminders, Cancelled/Postponed are auto-archived, and Delete/Test rows are removed without archiving.  
 - **Auto-archive** completed tasks to `Archive` and stamp `Date Archived`.  
 - **Recurring tasks**: when a completed task is marked recurring, a fresh “Open” row is created with Due Date pushed forward by `Repeat Every` days and a new Task ID.  
@@ -79,13 +80,17 @@ const CONFIG = {
   SHEET_NAME: "Form_Responses",      // <-- your data tab
   ARCHIVE_SHEET_NAME: "Archive",
   RECIPIENT_EMAIL: "you@example.com",
-  NOTIFICATION_PAUSE_UNTIL: ""        // e.g., "2025-08-15" to pause summary emails until that date (blank = off)
+  NOTIFICATION_PAUSE_UNTIL: ""        // e.g., "2025-08-15" (blank = off). Overridden by sheet/props if set.
 };
 ```
 
 - If `SHEET_NAME` isn’t found, the script tries to **auto-detect** the data sheet by scanning for common headers.  
 - Time zone is taken from the spreadsheet (File → Settings).
-- Need to pause emails while you’re on vacation? Set `NOTIFICATION_PAUSE_UNTIL` to a date string (ISO-style works best).  
+- Need to pause emails while you’re on vacation? You can set the pause date **without editing code**:  
+  - **Named range (recommended)**: create a named range called `NotificationPauseUntil` that points to any cell containing a date.  
+  - **Settings sheet fallback**: put the date in `Settings!B2` (no named range required).  
+  - **Script property**: set `NOTIFICATION_PAUSE_UNTIL` in Apps Script properties.  
+  - If none of those are set, the script uses `CONFIG.NOTIFICATION_PAUSE_UNTIL`.  
   - While the pause is active, the daily summary (including the “Send email now” menu shortcut) will quietly skip sending.  
   - Due-date reminders still go out, so truly urgent tasks aren’t missed.  
   - Clear the value (or set it to `""`) when you’re ready to resume.

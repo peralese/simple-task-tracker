@@ -7,7 +7,7 @@ const CONFIG = {
   SHEET_NAME: "Form_Responses",          // your tab; we also fall back to auto-detect
   ARCHIVE_SHEET_NAME: "Archive",
   RECIPIENT_EMAIL: "erickles@us.ibm.com", // change if needed
-  NOTIFICATION_PAUSE_UNTIL: "2026-01-05",          // e.g., "2025-08-15" to pause summaries until that date (blank to disable)
+  NOTIFICATION_PAUSE_UNTIL: "2026-01-05",          // e.g., "2025-08-15" (blank to disable). Overridden by sheet/props if set.
 };
 
 const STATUS_CONFIG = {
@@ -73,8 +73,31 @@ function _toDateOrNull(val) {
   return Number.isFinite(d.getTime()) ? d : null;
 }
 
+function _getNotificationPauseUntilRaw() {
+  const props = PropertiesService.getScriptProperties();
+  const propValue = props.getProperty("NOTIFICATION_PAUSE_UNTIL");
+  if (propValue !== null && propValue !== undefined && String(propValue).trim() !== "") {
+    return propValue;
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const named = ss.getRangeByName("NotificationPauseUntil");
+  if (named) {
+    const namedValue = named.getValue();
+    if (namedValue !== "") return namedValue;
+  }
+
+  const settingsSheet = ss.getSheetByName("Settings");
+  if (settingsSheet) {
+    const settingsValue = settingsSheet.getRange("B2").getValue();
+    if (settingsValue !== "") return settingsValue;
+  }
+
+  return CONFIG.NOTIFICATION_PAUSE_UNTIL;
+}
+
 function _isNotificationPauseActive() {
-  const raw = CONFIG.NOTIFICATION_PAUSE_UNTIL;
+  const raw = _getNotificationPauseUntilRaw();
   if (raw === true) return true;
   if (!raw) return false;
 
