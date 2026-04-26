@@ -14,7 +14,7 @@ const TASK_SCHEMA = `
   description TEXT DEFAULT '',
   due_date TEXT,
   priority TEXT NOT NULL CHECK (priority IN ('high', 'medium', 'low')),
-  status TEXT NOT NULL CHECK (status IN ('open', 'completed', 'cancelled', 'postponed')),
+  status TEXT NOT NULL CHECK (status IN ('open', 'completed', 'cancelled', 'postponed', 'on_hold')),
   category TEXT DEFAULT '',
   is_recurring INTEGER NOT NULL DEFAULT 0,
   recurrence_rule TEXT DEFAULT '',
@@ -28,6 +28,25 @@ export function nowIso() {
 
 export function getDb() {
   return db;
+}
+
+function migrateAddOnHold(db) {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'").get();
+  if (!row || row.sql.includes("on_hold")) return;
+
+  db.exec(`
+    ALTER TABLE tasks RENAME TO tasks_old;
+    CREATE TABLE tasks (${TASK_SCHEMA});
+    INSERT INTO tasks SELECT * FROM tasks_old;
+    DROP TABLE tasks_old;
+
+    ALTER TABLE archive RENAME TO archive_old;
+    CREATE TABLE archive (${TASK_SCHEMA}, archived_at TEXT NOT NULL);
+    INSERT INTO archive SELECT * FROM archive_old;
+    DROP TABLE archive_old;
+  `);
+
+  console.log("[db] migrated: added on_hold to status enum in tasks and archive");
 }
 
 export function initDb() {
@@ -52,6 +71,8 @@ export function initDb() {
       value TEXT
     );
   `);
+
+  migrateAddOnHold(db);
 
   const count = db.prepare("SELECT COUNT(*) AS count FROM tasks").get().count;
   if (count === 0) {

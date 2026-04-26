@@ -1,7 +1,7 @@
 import { nowIso } from "../db.js";
 
 export const VALID_PRIORITIES = ["high", "medium", "low"];
-export const VALID_STATUSES = ["open", "completed", "cancelled", "postponed"];
+export const VALID_STATUSES = ["open", "completed", "cancelled", "postponed", "on_hold"];
 
 export function normalizeTask(body = {}, { preserveCreatedAt = false } = {}) {
   const now = nowIso();

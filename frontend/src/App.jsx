@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import AddTaskModal from "./components/AddTaskModal";
 import TopBar from "./components/TopBar";
 import { useApp } from "./context/AppContext";
+import ArchivePage from "./pages/ArchivePage";
 import LoginPage from "./pages/LoginPage";
 import SettingsPage from "./pages/SettingsPage";
 import TaskListPage from "./pages/TaskListPage";
@@ -36,7 +37,11 @@ function AppShell() {
 
       <main className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-5 sm:px-6">
         <Banner />
-        {state.currentPage === "settings" ? <SettingsPage /> : <TaskListPage />}
+        {state.currentPage === "settings"
+          ? <SettingsPage />
+          : state.currentPage === "archive"
+            ? <ArchivePage />
+            : <TaskListPage />}
       </main>
 
       <AddTaskModal

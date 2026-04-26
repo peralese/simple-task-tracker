@@ -72,8 +72,10 @@ export const api = {
       method: "DELETE"
     });
   },
-  getArchive(page = 1, pageSize = 20) {
-    return request(`/archive?page=${page}&pageSize=${pageSize}`);
+  getArchive(page = 1, pageSize = 20, status = "") {
+    const query = new URLSearchParams({ page, pageSize });
+    if (status) query.set("status", status);
+    return request(`/archive?${query.toString()}`);
   },
   getConfig() {
     return request("/config");

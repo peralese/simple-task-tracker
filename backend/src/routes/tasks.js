@@ -21,7 +21,7 @@ const createValidators = [
 
 router.get("/", (req, res) => {
   const db = req.app.locals.db;
-  const clauses = ["status = 'open'"];
+  const clauses = ["status IN ('open', 'on_hold')"];
   const params = [];
 
   if (req.query.priority) {

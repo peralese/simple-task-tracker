@@ -16,6 +16,7 @@ export default function TopBar({ currentPage, onPageChange, onOpenModal, onRefre
           <nav className="flex rounded-full bg-canvas p-1">
             {[
               { id: "tasks", label: "Tasks" },
+              { id: "archive", label: "Archive" },
               { id: "settings", label: "Settings" }
             ].map((item) => (
               <button

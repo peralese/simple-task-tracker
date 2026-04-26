@@ -75,7 +75,7 @@ const tx = db.transaction((items) => {
     const priority = ["high", "medium", "low"].includes(String(row.Priority || "").toLowerCase())
       ? String(row.Priority).toLowerCase()
       : "medium";
-    const status = ["open", "completed", "cancelled", "postponed"].includes(String(row.Status || "").toLowerCase())
+    const status = ["open", "completed", "cancelled", "postponed", "on_hold"].includes(String(row.Status || "").toLowerCase())
       ? String(row.Status).toLowerCase()
       : "open";
 

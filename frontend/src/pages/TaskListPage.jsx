@@ -2,6 +2,7 @@ import TaskCard from "../components/TaskCard";
 import { useApp } from "../context/AppContext";
 
 function classify(task) {
+  if (task.status === "on_hold") return "onhold";
   if (!task.due_date) return "upcoming";
   const due = new Date(task.due_date);
   const today = new Date();
@@ -20,7 +21,7 @@ function groupTasks(tasks) {
       groups[classify(task)].push(task);
       return groups;
     },
-    { overdue: [], today: [], upcoming: [] }
+    { overdue: [], today: [], upcoming: [], onhold: [] }
   );
 }
 
@@ -28,7 +29,8 @@ function Section({ title, subtitle, tone, children }) {
   const titleTone = {
     overdue: "text-rose",
     today: "text-amber-700",
-    upcoming: "text-ink"
+    upcoming: "text-ink",
+    onhold: "text-ink/55"
   };
 
   return (
@@ -94,6 +96,7 @@ export default function TaskListPage() {
             key={task.id}
             onComplete={() => actions.setTaskStatus(task, "completed")}
             onEdit={() => dispatch({ type: "OPEN_MODAL", mode: "edit", task })}
+            onHold={() => actions.setTaskStatus(task, "on_hold")}
             onPostpone={() => actions.setTaskStatus(task, "postponed")}
             task={task}
             tone="overdue"
@@ -111,6 +114,7 @@ export default function TaskListPage() {
             key={task.id}
             onComplete={() => actions.setTaskStatus(task, "completed")}
             onEdit={() => dispatch({ type: "OPEN_MODAL", mode: "edit", task })}
+            onHold={() => actions.setTaskStatus(task, "on_hold")}
             onPostpone={() => actions.setTaskStatus(task, "postponed")}
             task={task}
             tone="today"
@@ -128,9 +132,28 @@ export default function TaskListPage() {
             key={task.id}
             onComplete={() => actions.setTaskStatus(task, "completed")}
             onEdit={() => dispatch({ type: "OPEN_MODAL", mode: "edit", task })}
+            onHold={() => actions.setTaskStatus(task, "on_hold")}
             onPostpone={() => actions.setTaskStatus(task, "postponed")}
             task={task}
             tone="upcoming"
+          />
+        ))}
+      </Section>
+
+      <Section subtitle="Paused tasks — resume when ready." title="On Hold" tone="onhold">
+        {groups.onhold.length === 0 ? (
+          <div className="rounded-[24px] border border-dashed border-ink/20 bg-white px-4 py-5 text-sm text-ink/55">
+            No tasks on hold.
+          </div>
+        ) : groups.onhold.map((task) => (
+          <TaskCard
+            key={task.id}
+            onComplete={() => actions.setTaskStatus(task, "completed")}
+            onEdit={() => dispatch({ type: "OPEN_MODAL", mode: "edit", task })}
+            onHold={() => actions.setTaskStatus(task, "open")}
+            onPostpone={() => actions.setTaskStatus(task, "postponed")}
+            task={task}
+            tone="onhold"
           />
         ))}
       </Section>

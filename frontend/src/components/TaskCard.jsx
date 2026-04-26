@@ -12,21 +12,24 @@ const priorityClasses = {
   low: "bg-moss/12 text-moss"
 };
 
-export default function TaskCard({ task, tone, onComplete, onPostpone, onEdit }) {
+export default function TaskCard({ task, tone, onComplete, onPostpone, onHold, onEdit }) {
   const toneClasses = {
     overdue: "border-rose/35",
     today: "border-amber/35",
-    upcoming: "border-ink/10"
+    upcoming: "border-ink/10",
+    onhold: "border-ink/20"
   };
 
+  const isOnHold = task.status === "on_hold";
+
   return (
-    <article className={`rounded-[24px] border bg-white p-4 shadow-sm ${toneClasses[tone]}`}>
+    <article className={`rounded-[24px] border bg-white p-4 shadow-sm ${toneClasses[tone] ?? toneClasses.upcoming}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold text-ink">{task.title}</h3>
           <p className="mt-1 text-sm text-ink/55">{formatDate(task.due_date)}</p>
         </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${priorityClasses[task.priority] || priorityClasses.medium}`}>
+        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${priorityClasses[task.priority] || priorityClasses.medium}`}>
           {task.priority}
         </span>
       </div>
@@ -35,11 +38,19 @@ export default function TaskCard({ task, tone, onComplete, onPostpone, onEdit })
         <span className="rounded-full bg-canvas px-3 py-1 text-xs font-medium text-ink/75">
           {task.category || "Uncategorized"}
         </span>
+        {isOnHold && (
+          <span className="rounded-full bg-ink/10 px-3 py-1 text-xs font-medium text-ink/55">
+            On Hold
+          </span>
+        )}
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-2">
+      <div className="mt-4 grid grid-cols-2 gap-2">
         <button className="rounded-2xl bg-moss px-3 py-2 text-sm font-medium text-white" onClick={onComplete} type="button">
           Complete
+        </button>
+        <button className="rounded-2xl bg-canvas px-3 py-2 text-sm font-medium text-ink" onClick={onHold} type="button">
+          {isOnHold ? "Resume" : "Hold"}
         </button>
         <button className="rounded-2xl bg-amber px-3 py-2 text-sm font-medium text-ink" onClick={onPostpone} type="button">
           Postpone
