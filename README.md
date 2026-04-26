@@ -1,258 +1,81 @@
-# 📝 Task Tracker App (Google Sheets + Apps Script)
+# Task App
 
-A personal task tracker built with **Google Forms**, **Google Sheets**, and **Google Apps Script**.  
-Submit tasks from your phone, see them in Sheets, get email reminders, and automatically roll recurring tasks forward.
+A single-user personal task manager built with an Express + SQLite backend and a React + Vite PWA frontend.
 
----
+## Setup
 
-## What's new
-
-### 2025-12-06
-
-- **On Hold rows get their own color**: switching a late task to `On Hold` now switches the row to a soft amber highlight so it no longer looks overdue. The Apps Script enforces the new conditional formatting, so paused tasks are excluded from the red “late” styling automatically.
-- **Recurring frequency detection is now loose**: the script finds the `Repeat Every`/`Frequency` column even if the header is renamed (e.g., `Frequency`, `How often`, `Repeat?`). Recurring tasks that were previously dropping off because the header name didn’t match the strict list now reschedule correctly.
-
-### 2025-11-05
-
-- **On Hold status**: added `On Hold` / `On-Hold` as a recognized status. Tasks stay on the main sheet but are treated as paused, so they are excluded from reminders and the daily summary until you move them back to an active status.
-
-### 2025-10-18
-
-- **Daily summary includes Priority**: the email now shows a `Priority` column and sorts open tasks by **Priority (High → Medium → Low)**, then by **Due Date**.
-- **New statuses supported**: `Cancelled`/`Canceled` and `Postponed` are now recognized. They are auto-archived with `Date Archived`, excluded from reminders and the daily summary, and do not trigger recurrence.
-
-### 2025-09-30
-
-- **Recurring column detection hardened**: added a **loose header finder** to tolerate misspellings and trailing spaces (e.g., `Recureing? ` still works).  
-- **Diagnostics**:  
-  - Logs now include the detected headers and the resolved index for `Recurring?`.  
-  - Each completed row logs the **raw cell value** for `Recurring?`, making it easier to debug why a task may or may not recur.  
-- **Behavior unchanged**: tasks marked `Complete` still move to **Archive** and, if recurring, are re-created with the new Due Date.
-
----
-
-## Features
-
-- Add tasks with: Task Name, Notes, **Due Date**, **Status** (Open/In Progress/On Hold/Complete), **Priority**, **Send Reminder?**.
-- **Email reminders** for tasks due **today** (stamps `Email Notified` to avoid duplicate sends).  
-- **Daily summary** email of **open** tasks (skips weekends), with a `Priority` column and sorting by Priority → Due Date.  
-- **Manual send menu** so you can send the summary email immediately from Extensions → Task App → Send email now.  
-- **Vacation pause** option: disable the daily summary until a date you choose, while still letting truly due tasks send their reminders.  
-- **Pause date can be set from the sheet**: use a named range or a Settings cell to avoid editing `Code.js`.  
-- Recognizes statuses: `Open`, `In Progress`, `On Hold`, `Complete`, `Cancelled`/`Canceled`, `Postponed`, and `Delete/Test Data` for disposable entries. `On Hold` stays on the main sheet but is excluded from summaries/reminders, Cancelled/Postponed are auto-archived, and Delete/Test rows are removed without archiving.  
-- **Auto-archive** completed tasks to `Archive` and stamp `Date Archived`.  
-- **Recurring tasks**: when a completed task is marked recurring, a fresh “Open” row is created with Due Date pushed forward by `Repeat Every` days and a new Task ID.  
-- **On-edit hygiene**: `Last Modified` is updated on any edit; changing `Due Date` clears `Email Notified` so the reminder can resend on the new date.
-- **Flexible headers**: tolerant of variants (`Send Reminder?` vs `Reminder`, `Task Name` vs `Task`, and now even `Recureing?` with typos).  
-- **Local editing via `clasp`** (optional) with `.claspignore` / `.gitignore` recipes included.
-
----
-
-## Sheet structure (columns)
-
-The code is flexible, but expect a table with headers similar to the following (names may vary slightly):
-
-| Column            | Notes                                                                 |
-|-------------------|-----------------------------------------------------------------------|
-| `Timestamp`       | From the Form                                                         |
-| `Task Name`       | Short title (`Task` also accepted)                                    |
-| `Notes`           | Optional details                                                      |
-| `Due Date`        | A real date value (not text)                                          |
-| `Status`          | `Open`, `In Progress`, `On Hold`, `Complete`, `Cancelled`/`Canceled`, `Postponed`, `Delete`/`Test Data` (`On Hold` pauses emails but keeps the row on the main sheet) |
-| `Send Reminder?`  | Checkbox/text; “Yes” values trigger reminders                         |
-| `Priority`        | `High` / `Medium` / `Low`                                             |
-| `Recurring?`      | **Checkbox** `TRUE/FALSE` or text “Yes/True/Y/1/✓`; typos tolerated   |
-| `Repeat Every`    | **Number of days** (e.g., 7)                                          |
-| `Task ID`         | Auto-generated if blank                                               |
-| `Email Notified`  | Timestamp set when reminder email is sent                             |
-| `Last Modified`   | Auto-stamped on edits                                                 |
-
-> The `Archive` sheet is auto-created and gets a `Date Archived` column added automatically.
-
----
-
-## Configuration
-
-Open `Code.js` and set:
-
-```js
-const CONFIG = {
-  SHEET_NAME: "Form_Responses",      // <-- your data tab
-  ARCHIVE_SHEET_NAME: "Archive",
-  RECIPIENT_EMAIL: "you@example.com",
-  NOTIFICATION_PAUSE_UNTIL: ""        // e.g., "2025-08-15" (blank = off). Overridden by sheet/props if set.
-};
-```
-
-- If `SHEET_NAME` isn’t found, the script tries to **auto-detect** the data sheet by scanning for common headers.  
-- Time zone is taken from the spreadsheet (File → Settings).
-- Need to pause emails while you’re on vacation? You can set the pause date **without editing code**:  
-  - **Named range (recommended)**: create a named range called `NotificationPauseUntil` that points to any cell containing a date.  
-  - **Settings sheet fallback**: put the date in `Settings!B2` (no named range required).  
-  - **Script property**: set `NOTIFICATION_PAUSE_UNTIL` in Apps Script properties.  
-  - If none of those are set, the script uses `CONFIG.NOTIFICATION_PAUSE_UNTIL`.  
-  - While the pause is active, the daily summary (including the “Send email now” menu shortcut) will quietly skip sending.  
-  - Due-date reminders still go out, so truly urgent tasks aren’t missed.  
-  - Clear the value (or set it to `""`) when you’re ready to resume.
-
----
-
-## Install the daily triggers (Option A)
-
-Run this **once** from the Apps Script editor:
-
-1. Open **`trigger.gs`**.
-2. Run **`ensureDailyTriggers`** and approve scopes.
-3. Verify under **Triggers (⏰ icon)** you now have three time-driven entries:
-   - `archiveCompletedTasks` (daily)
-   - `sendTaskSummary` (daily; **weekend skip** inside the function)
-   - `sendTaskReminders` (daily)
-
-Helpful utilities (optional):
-- `listTriggers()` → prints triggers to Logs
-- `clearTimeBasedTriggers()` → removes time-based triggers so you can reinstall
-Need an email right away? Use **Extensions → Task App → Send email now** in the Sheet to mail yourself the latest open-task summary immediately.
-
----
-
-## How recurrence works
-
-When `archiveCompletedTasks` runs (by trigger or manual test):
-
-1. Rows with `Status = Complete`, `Cancelled`/`Canceled`, or `Postponed` are copied to **Archive** and stamped with **Date Archived** (`On Hold` rows stay put so you can reactivate them later).
-2. Rows with `Status = Delete` (or `Test Data`) are simply removed from the main sheet without touching the Archive, keeping throwaway rows out of history.
-3. If the row is **recurring** and valid, and the status is `Complete`:
-   - `Recurring?` is truthy (checkbox `TRUE` or a “yes-ish” value, tolerant of typos);
-   - `Repeat Every` is a finite **number > 0** (days);
-   - `Due Date` is a valid **Date**;
-   then the script **appends a new row** with:
-   - `Status = Open`
-   - `Due Date = old Due Date + Repeat Every`
-   - new `Task ID`
-   - `Email Notified` cleared, `Last Modified` updated
-4. The original row is deleted from the main sheet (it remains in `Archive`). Rows that are `Cancelled`/`Canceled` or `Postponed` are archived only (no recurrence).
-
-**Why a task may _not_ be recreated**:
-- `Recurring?` is unchecked/empty or evaluates to false.  
-- `Repeat Every` is text or non-numeric (e.g., “N/A”).  
-- `Due Date` cell contains text instead of a Date value.  
-- The column headers weren’t detected (uncommon) — now logged to help debugging.
-
----
-
-## Manual smoke tests
-
-You can test without waiting for the morning trigger:
-
-1. Create a test row with:
-   - `Status = Complete`
-   - `Recurring? = TRUE` (checkbox) or `Yes` (even if spelled incorrectly, still works)
-   - `Repeat Every = 7`
-   - `Due Date =` today (or any valid date)
-2. In Apps Script, **Run → `archiveCompletedTasks`**.
-3. Expected results:
-   - The row is moved to **Archive** and stamped with **Date Archived**.
-   - A **new “Open” row** appears in the main sheet with Due Date = previous + 7 days.
-
-To test reminders:
-- Create a row with `Status = Open`, `Due Date = today`, `Send Reminder? = Yes`, `Email Notified` blank.
-- Run **`sendTaskReminders`**. You should get an email and the row will be stamped in `Email Notified`.
-
-To test daily summary (skips weekends by default):
-- Run **`sendTaskSummary`** on a weekday. It will email a table of open tasks with a `Priority` column, sorted High → Medium → Low, then by Due Date.
-
-To test Cancelled/Postponed flow:
-- Set a row to `Status = Cancelled` (or `Postponed`).
-- Run **`archiveCompletedTasks`**. The row should move to `Archive` with `Date Archived` set and should not be re-created, even if marked `Recurring? = TRUE`.
-
----
-
-## Troubleshooting
-
-- **“Row N: recurring=false …” in Logs**  
-  Now you also see `recurring cell raw value = ...` which shows exactly what was in the sheet.  
-  If you see `"Recureing? "` in headers, the loose finder will still detect it.  
-
-- **“Repeat Every invalid/zero”**  
-  Make sure the cell is a **number** (e.g., `7`) — not `N/A` or text.
-
-- **“Due Date missing/invalid”**  
-  Re-enter the Due Date as a date (left-aligned text is a red flag).
-
-- **“Missing ‘Status’ column; aborting.”**  
-  The script couldn’t find headers near the top. We now **auto-detect** the header row by scanning the first 10 rows.  
-  If your header is deeper, open `Code.js` and increase the scan window in `_locateHeaderRow` (e.g., to 25).
-
-- **No emails**  
-  Confirm `RECIPIENT_EMAIL` and check **Apps Script → Executions** for errors. Summary intentionally skips weekends.
-
-- **Wrong sheet**  
-  Ensure `CONFIG.SHEET_NAME` matches your tab (e.g., `Form_Responses`). You can also rely on the auto-detect fallback.
-
----
-
-## Local development (optional) with `clasp`
+1. Copy [.env.example](./.env.example) to `.env`.
+2. Install dependencies:
 
 ```bash
-npm i -g @google/clasp
-clasp login
-clasp clone <SCRIPT_ID>
-# edit locally, then
-clasp push
+npm install
+cd backend && npm install
+cd ../frontend && npm install
+cd ..
 ```
 
-**.claspignore** (push only `appsscript.json` and `src/**`):
-```
-**/*
-!appsscript.json
-!src/**
+3. Generate VAPID keys:
 
-node_modules/**
-.git/**
-.vscode/**
-.env
-**/*.map
+```bash
+npm run generate:vapid
 ```
 
-**.gitignore**:
-```
-node_modules/
-.env
-.vscode/
-.idea/
-dist/
-build/
-.DS_Store
-Thumbs.db
+4. Add the generated `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` values to `.env`.
+5. Generate a SHA-256 passphrase hash for `PASSPHRASE_HASH`:
 
-.clasp.json
-.claspignore
-appsscript.json.backup
+```bash
+node -e "const crypto=require('crypto'); console.log(crypto.createHash('sha256').update('your-passphrase').digest('hex'))"
 ```
 
----
+6. Set the rest of the environment variables in `.env`.
+7. Start the app:
 
-## Roadmap
+```bash
+npm run dev
+```
 
-- [x] Email reminders + daily summary (skip weekends)
-- [x] Auto-archive and recurring task recreation
-- [x] Trigger installer & helpers
-- [x] Flexible headers + checkbox-friendly recurrence
-- [x] Header row auto-detection
-- [x] Loose matching + diagnostics for recurring column
-- [ ] Dashboard tab (filters & charts)
-- [ ] Calendar-style view
-- [ ] Mobile quick actions / shortcuts
+The backend runs on `http://localhost:3001` and the frontend runs on `http://localhost:5173`.
 
----
+The app reads environment variables from the single root `.env` file. You do not need separate `backend/.env` or `frontend/.env` files.
 
-## License
+## Environment Variables
 
-MIT
+- `PORT`: Express port.
+- `JWT_SECRET`: Secret used to sign auth JWTs.
+- `VAPID_PUBLIC_KEY`: Public key used for browser push subscriptions.
+- `VAPID_PRIVATE_KEY`: Private key used to send web-push notifications.
+- `TZ`: Scheduler timezone, for example `America/Chicago`.
+- `PASSPHRASE_HASH`: SHA-256 hash of the login passphrase.
+- `VITE_VAPID_PUBLIC_KEY`: same value as `VAPID_PUBLIC_KEY`
+- `VITE_API_BASE_URL`: usually `http://localhost:3001`
 
----
+## Import Tasks From Google Sheets CSV
 
-## Author
+1. Open your Google Sheet.
+2. Export it:
+   File -> Download -> Comma-separated values (.csv)
+3. Make sure the CSV includes:
+   `Task ID`, `Title`, `Due Date`, `Priority`, `Status`, `Category`
+4. Run the import:
 
-**Erick Perales** — IT Architect, Cloud Migration Specialist  
-<https://github.com/peralese>
+```bash
+node scripts/import-from-csv.js /path/to/export.csv
+```
+
+This imports rows into `backend/data/task-app.db`.
+
+## Deploy To Railway
+
+This project includes:
+
+- [Dockerfile](./Dockerfile) for a single deployable container
+- [render.yaml](./render.yaml) for a one-click Render-style deployment config
+
+Railway steps:
+
+1. Push the repo to GitHub.
+2. Create a new Railway project from the repo.
+3. Point Railway at the `task-app` directory or use [Dockerfile](./Dockerfile).
+4. Add the env vars from [.env.example](./.env.example).
+5. Set `VITE_VAPID_PUBLIC_KEY` to the same value as `VAPID_PUBLIC_KEY` for the frontend build.
+6. Deploy and verify `/health`.

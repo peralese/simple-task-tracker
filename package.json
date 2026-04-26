@@ -1,0 +1,18 @@
+{
+  "name": "task-app",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "backend:dev": "npm run dev --prefix backend",
+    "frontend:dev": "npm run dev --prefix frontend",
+    "generate:vapid": "node scripts/generate-vapid-keys.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
