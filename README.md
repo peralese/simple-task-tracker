@@ -79,3 +79,33 @@ Railway steps:
 4. Add the env vars from [.env.example](./.env.example).
 5. Set `VITE_VAPID_PUBLIC_KEY` to the same value as `VAPID_PUBLIC_KEY` for the frontend build.
 6. Deploy and verify `/health`.
+
+## Roadmap
+
+### Completed
+- Full-stack rebuild from Google Apps Script / Google Sheets to a
+  React + Vite PWA with Node/Express backend and SQLite
+- Task CRUD with priority levels (high / medium / low) and categories
+- Task grouping: Overdue / Due Today / Upcoming / On Hold
+- On Hold status — blocks notifications without archiving the task
+- Recurring tasks — next occurrence auto-created on completion
+- Archive — completed and cancelled tasks moved to a separate table
+- Archive view in the UI with status filtering
+- Web Push notifications via VAPID
+- Pause notifications until a date (Settings page)
+- JWT passphrase login
+- CSV import from Google Sheets export
+- Docker container with multi-stage build
+- Deployed to Render free tier with cron-job.org keep-warm pings
+  (M-F 7 AM - 5 PM Central)
+
+### Second wave
+- Full-text search and combined priority + category filtering
+- Smarter postpone flow — quick-pick (Tomorrow / This Weekend /
+  Next Week / Custom date) instead of fixed offset
+- Expandable task notes — tap card to reveal description field
+
+### Later / nice to have
+- Dashboard summary view — open/overdue/on-hold counts and
+  14-day completion sparkline from archive table
+- SMS fallback notifications via Twilio if push subscription lapses
