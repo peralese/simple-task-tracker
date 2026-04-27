@@ -1,4 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+// In development: use local dev server on port 3001
+// In production: use relative URLs (empty base) when VITE_API_BASE_URL is not set
+const API_BASE = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? "http://localhost:3001" : "");
 const TOKEN_KEY = "task_app_jwt";
 
 function authHeaders(includeJson = true) {
