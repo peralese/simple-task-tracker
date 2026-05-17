@@ -109,6 +109,13 @@ router.put("/:id", (req, res) => {
     { preserveCreatedAt: true }
   );
 
+  if (next.status === "completed" || next.status === "cancelled") {
+    const taskToArchive = { ...existing, status: next.status, last_modified: next.last_modified };
+    const archived = archiveTask(db, taskToArchive);
+    const nextOccurrence = createNextOccurrence(db, taskToArchive);
+    return ok(res, { archived, next_occurrence: nextOccurrence });
+  }
+
   db.prepare(`
     UPDATE tasks SET
       title = @title,

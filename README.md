@@ -48,6 +48,7 @@ The app reads environment variables from the single root `.env` file. You do not
 - `PASSPHRASE_HASH`: SHA-256 hash of the login passphrase.
 - `VITE_VAPID_PUBLIC_KEY`: same value as `VAPID_PUBLIC_KEY`
 - `VITE_API_BASE_URL`: usually `http://localhost:3001`
+- `DATA_DIR`: directory where `task-app.db` is stored. Leave unset to default to `./data`.
 
 ## Import Tasks From Google Sheets CSV
 
@@ -63,22 +64,6 @@ node scripts/import-from-csv.js /path/to/export.csv
 ```
 
 This imports rows into `backend/data/task-app.db`.
-
-## Deploy To Railway
-
-This project includes:
-
-- [Dockerfile](./Dockerfile) for a single deployable container
-- [render.yaml](./render.yaml) for a one-click Render-style deployment config
-
-Railway steps:
-
-1. Push the repo to GitHub.
-2. Create a new Railway project from the repo.
-3. Point Railway at the `task-app` directory or use [Dockerfile](./Dockerfile).
-4. Add the env vars from [.env.example](./.env.example).
-5. Set `VITE_VAPID_PUBLIC_KEY` to the same value as `VAPID_PUBLIC_KEY` for the frontend build.
-6. Deploy and verify `/health`.
 
 ## Roadmap
 
@@ -96,8 +81,7 @@ Railway steps:
 - JWT passphrase login
 - CSV import from Google Sheets export
 - Docker container with multi-stage build
-- Deployed to Render free tier with cron-job.org keep-warm pings
-  (M-F 7 AM - 5 PM Central)
+- Self-hosted on Mac mini via Node + launchd
 
 ### Second wave
 - Full-text search and combined priority + category filtering
